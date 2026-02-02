@@ -27,32 +27,34 @@
             overflow: hidden;
         }
 
-        /* --- 閱讀區背景與陰影 --- */
+        /* --- 閱讀區背景與 3D 設定 --- */
         #canvas-container {
             background-image: radial-gradient(#374151 1px, transparent 1px);
             background-size: 20px 20px;
-            perspective: 1000px; /* 3D 深度 */
+            perspective: 1500px; 
+            overflow: auto; /* 允許捲動 */
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* 讓放大時內容可以捲動 */
         }
 
         canvas {
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-            transform-origin: center left; /* 翻頁軸心 */
+            transform-origin: center top; 
+            backface-visibility: hidden;
+            margin-top: 20px;
+            margin-bottom: 20px;
         }
 
-        /* --- 關鍵動畫：滑入效果 (Slide & Fade) --- */
-        @keyframes pageSlideIn {
-            0% {
-                opacity: 0;
-                transform: translateX(30px) scale(0.98);
-            }
-            100% {
-                opacity: 1;
-                transform: translateX(0) scale(1);
-            }
+        /* --- 關鍵動畫：3D 彈性翻頁 --- */
+        @keyframes bookFlipIn {
+            0% { opacity: 0; transform: rotateY(-90deg) scale(0.9); }
+            60% { transform: rotateY(5deg) scale(1.02); }
+            100% { opacity: 1; transform: rotateY(0deg) scale(1); }
         }
 
         .page-animating {
-            animation: pageSlideIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            animation: bookFlipIn 0.8s cubic-bezier(0.15, 1, 0.3, 1); 
         }
 
         /* --- AI 側邊欄動畫 --- */
@@ -67,6 +69,12 @@
         .msg-ai { background-color: #374151; border-radius: 12px 12px 12px 2px; }
         .msg-user { background-color: var(--primary-color); color: white; border-radius: 12px 12px 2px 12px; }
         
+        /* 朗讀中狀態 */
+        .speaking-mode {
+            border: 2px solid #fbbf24;
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.5);
+        }
+
         /* 載入轉圈圈 */
         .spinner {
             border: 4px solid rgba(255, 255, 255, 0.1);
@@ -97,16 +105,20 @@
     </div>
 
     <!-- 頂部導覽列 -->
-    <header class="bg-gray-900 border-b border-gray-700 px-4 py-3 flex items-center justify-between shadow-lg z-50">
-        <div class="flex items-center gap-3">
-            <!-- 回首頁按鈕 (預留給未來串接) -->
-            <a href="index.html" class="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold transition-colors" title="回首頁">
-                🏠
+    <header class="bg-gray-900 border-b border-gray-700 px-4 py-3 flex flex-wrap items-center justify-between shadow-lg z-50 gap-2">
+        <div class="flex items-center gap-2 sm:gap-4">
+            <!-- 回首頁按鈕 -->
+            <a href="index.html" class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-medium border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                <span class="hidden sm:inline">回首頁</span>
             </a>
-            <span class="font-bold text-lg tracking-wide hidden sm:block">AI 智慧閱讀器</span>
+            
+            <div class="h-6 w-px bg-gray-700 hidden sm:block"></div>
+
+            <span class="font-bold text-lg tracking-wide hidden md:block text-blue-400">AI 智慧閱讀器</span>
             
             <!-- 模式切換 -->
-            <div class="flex items-center bg-gray-800 rounded-lg p-1 border border-gray-700 ml-2">
+            <div class="flex items-center bg-gray-800 rounded-lg p-1 border border-gray-700">
                 <button id="btn-mode-local" onclick="switchMode('local')" class="px-3 py-1 text-sm rounded-md bg-gray-700 text-white shadow-sm transition-all">📂 本地</button>
                 <button id="btn-mode-demo" onclick="switchMode('demo')" class="px-3 py-1 text-sm rounded-md text-gray-400 hover:text-white transition-all">🌐 範例</button>
             </div>
@@ -115,6 +127,13 @@
         <div class="flex items-center gap-2">
             <input type="file" id="fileInput" accept="application/pdf" class="hidden">
             
+            <!-- 縮放控制器 -->
+            <div class="flex items-center bg-gray-800 rounded-lg border border-gray-700 mr-2">
+                <button class="px-2 py-1 hover:bg-gray-700 text-gray-300" onclick="zoomOut()" title="縮小">－</button>
+                <span id="zoomLevel" class="text-xs text-gray-400 w-10 text-center">100%</span>
+                <button class="px-2 py-1 hover:bg-gray-700 text-gray-300" onclick="zoomIn()" title="放大">＋</button>
+            </div>
+
             <!-- 翻頁器 -->
             <div class="flex items-center bg-gray-800 rounded-lg border border-gray-700">
                 <button class="px-3 py-1 hover:bg-gray-700 text-gray-300 disabled:opacity-30" id="prevBtn" disabled>❮</button>
@@ -124,16 +143,20 @@
                 <button class="px-3 py-1 hover:bg-gray-700 text-gray-300 disabled:opacity-30" id="nextBtn" disabled>❯</button>
             </div>
 
-            <!-- AI 按鈕 -->
-            <button class="flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg hover:bg-amber-500/20 transition-all text-sm" onclick="summarizePage()">
-                <span>✨</span><span class="hidden sm:inline">摘要</span>
+            <!-- 工具按鈕 -->
+            <button class="p-2 text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-lg hover:bg-amber-500/20 transition-all" onclick="toggleSpeech()" id="btn-speak" title="朗讀本頁">
+                🔊
+            </button>
+
+            <button class="p-2 text-blue-400 bg-blue-500/10 border border-blue-500/30 rounded-lg hover:bg-blue-500/20 transition-all" onclick="summarizePage()" title="AI 摘要">
+                ✨
             </button>
             
-            <button class="p-2 text-gray-400 hover:text-white transition-colors" onclick="toggleSidebar()">
+            <button class="p-2 text-gray-400 hover:text-white transition-colors" onclick="toggleSidebar()" title="AI 問答">
                 💬
             </button>
             
-            <button class="p-2 text-gray-400 hover:text-white transition-colors" onclick="openApiModal()">
+            <button class="p-2 text-gray-400 hover:text-white transition-colors" onclick="openApiModal()" title="API 設定">
                 ⚙️
             </button>
         </div>
@@ -142,10 +165,10 @@
     <!-- 主要內容區 -->
     <div class="flex flex-1 overflow-hidden relative">
         <!-- 閱讀畫布 -->
-        <div id="canvas-container" class="flex-1 overflow-auto flex justify-center p-4 sm:p-8 bg-gray-800">
+        <div id="canvas-container">
             
             <!-- 尚未載入時的畫面 -->
-            <div id="emptyState" class="self-center text-center p-8">
+            <div id="emptyState" class="self-center text-center p-8 mt-20">
                 <div class="mb-6 inline-block p-4 bg-gray-700 rounded-full animate-bounce">
                     📂
                 </div>
@@ -159,24 +182,24 @@
             </div>
 
             <!-- 載入中 -->
-            <div id="loadingState" class="hidden self-center text-center">
+            <div id="loadingState" class="hidden self-center text-center mt-20">
                 <div class="spinner mx-auto mb-4"></div>
                 <p class="text-gray-400">正在解析文件...</p>
             </div>
 
-            <canvas id="the-canvas" class="hidden max-w-full h-auto"></canvas>
+            <canvas id="the-canvas" class="hidden"></canvas>
         </div>
 
         <!-- AI 側邊欄 -->
-        <div id="ai-sidebar" class="w-80 sm:w-96 bg-gray-900 border-l border-gray-700 flex flex-col absolute top-0 right-0 bottom-0 h-full z-40">
+        <div id="ai-sidebar" class="w-80 sm:w-96 bg-gray-900 border-l border-gray-700 flex flex-col absolute top-0 right-0 bottom-0 h-full z-40 shadow-2xl">
             <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 backdrop-blur">
-                <span class="font-bold text-gray-200">✨ Gemini 助手</span>
+                <span class="font-bold text-gray-200 flex items-center gap-2">✨ Gemini 助手</span>
                 <button class="text-gray-400 hover:text-white" onclick="toggleSidebar()">✕</button>
             </div>
             
             <div id="chatHistory" class="flex-1 overflow-y-auto p-4 space-y-4">
                 <div class="msg-system text-center text-gray-500 text-xs py-4">
-                    👋 載入 PDF 後，您可以點擊「摘要」或直接提問。
+                    👋 載入 PDF 後，您可以點擊「✨」摘要或直接提問。
                 </div>
             </div>
 
@@ -201,15 +224,17 @@
     let pageNum = 1;
     let pageRendering = false;
     let pageNumPending = null;
-    let scale = 1.5; // 預設縮放
+    let scale = 1.0; // 初始縮放
+    let currentFileName = ""; // 用於儲存閱讀進度
+    let isSpeaking = false; // 朗讀狀態
     
     const canvas = document.getElementById('the-canvas');
     const ctx = canvas.getContext('2d');
     const fileInput = document.getElementById('fileInput');
+    const zoomLevelDisplay = document.getElementById('zoomLevel');
     
     // --- 檔案載入邏輯 ---
     
-    // 模式切換
     function switchMode(mode) {
         const btnLocal = document.getElementById('btn-mode-local');
         const btnDemo = document.getElementById('btn-mode-demo');
@@ -226,7 +251,6 @@
         }
     }
 
-    // 監聽檔案上傳
     fileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file && file.type === 'application/pdf') {
@@ -241,12 +265,14 @@
         document.getElementById('emptyState').classList.remove('hidden');
         document.getElementById('pageCount').textContent = '0';
         document.getElementById('pageNum').textContent = '0';
+        stopSpeaking(); // 重置時停止朗讀
     }
 
     function loadPdf(url, isLocal, fileName) {
         document.getElementById('emptyState').classList.add('hidden');
         document.getElementById('loadingState').classList.remove('hidden');
         canvas.classList.add('hidden');
+        currentFileName = fileName;
 
         pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
             pdfDoc = pdfDoc_;
@@ -255,7 +281,14 @@
             document.getElementById('loadingState').classList.add('hidden');
             canvas.classList.remove('hidden');
             
-            pageNum = 1;
+            // --- 自動記憶進度功能 ---
+            const savedPage = localStorage.getItem(`read_progress_${fileName}`);
+            if (savedPage && confirm(`您上次讀到第 ${savedPage} 頁，要繼續閱讀嗎？`)) {
+                pageNum = parseInt(savedPage);
+            } else {
+                pageNum = 1;
+            }
+            
             renderPage(pageNum);
             
             addMessage('system', `📚 已載入：${fileName}`);
@@ -268,26 +301,30 @@
         });
     }
 
-    // --- 頁面渲染 (含動畫) ---
-    function renderPage(num) {
+    // --- 頁面渲染 (優化版：支援安靜重繪) ---
+    // animate 參數控制是否播放翻頁動畫，預設為 true
+    function renderPage(num, animate = true) {
         pageRendering = true;
+        stopSpeaking(); // 翻頁時停止朗讀
         
-        // 觸發 CSS 動畫 (Reflow)
-        canvas.classList.remove('page-animating');
-        void canvas.offsetWidth; 
-        canvas.classList.add('page-animating');
+        // 處理動畫
+        canvas.classList.remove('page-animating'); // 先移除動畫
+        if (animate) {
+            void canvas.offsetWidth; // 觸發重繪 (Reflow)
+            canvas.classList.add('page-animating'); // 只有在需要動畫時才加回去
+        }
+
+        // 儲存進度
+        localStorage.setItem(`read_progress_${currentFileName}`, num);
 
         pdfDoc.getPage(num).then(function(page) {
-            // 根據螢幕寬度調整縮放
-            const containerWidth = document.getElementById('canvas-container').clientWidth;
-            const viewport_temp = page.getViewport({scale: 1});
-            // 讓頁面寬度適應容器，但保留一些邊距 (padding)
-            const desiredScale = (containerWidth - 60) / viewport_temp.width;
-            scale = Math.min(1.5, desiredScale); // 最大放大到 1.5 倍
-
-            const viewport = page.getViewport({scale: scale});
+            const viewport = page.getViewport({scale: scale * 1.5}); // 基礎解析度乘 1.5 保持清晰
             canvas.height = viewport.height;
             canvas.width = viewport.width;
+            
+            // 讓 Canvas 顯示大小隨縮放變化
+            canvas.style.width = `${viewport.width / (window.devicePixelRatio || 1)}px`;
+            canvas.style.height = `${viewport.height / (window.devicePixelRatio || 1)}px`;
 
             const renderContext = { canvasContext: ctx, viewport: viewport };
             const renderTask = page.render(renderContext);
@@ -304,6 +341,9 @@
         document.getElementById('pageNum').textContent = num;
         document.getElementById('prevBtn').disabled = num <= 1;
         document.getElementById('nextBtn').disabled = num >= pdfDoc.numPages;
+        
+        // 更新縮放顯示
+        zoomLevelDisplay.innerText = `${Math.round(scale * 100)}%`;
     }
 
     function queueRenderPage(num) {
@@ -313,6 +353,67 @@
 
     document.getElementById('prevBtn').addEventListener('click', () => { if(pageNum > 1) { pageNum--; queueRenderPage(pageNum); } });
     document.getElementById('nextBtn').addEventListener('click', () => { if(pageNum < pdfDoc.numPages) { pageNum++; queueRenderPage(pageNum); } });
+
+    // --- 縮放功能 (修正版：不觸發動畫) ---
+    function zoomIn() {
+        if(scale < 3.0) {
+            scale += 0.2;
+            renderPage(pageNum, false); // 傳入 false 關閉動畫
+        }
+    }
+
+    function zoomOut() {
+        if(scale > 0.6) {
+            scale -= 0.2;
+            renderPage(pageNum, false); // 傳入 false 關閉動畫
+        }
+    }
+
+    // --- 朗讀功能 (TTS) ---
+    async function toggleSpeech() {
+        const btn = document.getElementById('btn-speak');
+        
+        if(isSpeaking) {
+            stopSpeaking();
+            return;
+        }
+
+        if(!pdfDoc) return;
+
+        // 開始朗讀
+        const text = await getCurrentPageText();
+        if(!text) { alert("本頁沒有可朗讀的文字"); return; }
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-TW'; // 設定中文
+        utterance.rate = 1.0; // 語速
+        
+        utterance.onend = () => {
+            isSpeaking = false;
+            btn.classList.remove('bg-amber-500', 'text-white', 'speaking-mode');
+            btn.classList.add('bg-amber-500/10', 'text-amber-400');
+            canvas.classList.remove('speaking-mode');
+        };
+
+        window.speechSynthesis.speak(utterance);
+        isSpeaking = true;
+        
+        // UI 回饋
+        btn.classList.remove('bg-amber-500/10', 'text-amber-400');
+        btn.classList.add('bg-amber-500', 'text-white', 'speaking-mode');
+        canvas.classList.add('speaking-mode'); // 讓書本發光
+    }
+
+    function stopSpeaking() {
+        if(isSpeaking) {
+            window.speechSynthesis.cancel();
+            isSpeaking = false;
+            const btn = document.getElementById('btn-speak');
+            btn.classList.remove('bg-amber-500', 'text-white', 'speaking-mode');
+            btn.classList.add('bg-amber-500/10', 'text-amber-400');
+            canvas.classList.remove('speaking-mode');
+        }
+    }
 
     // --- AI 功能 ---
     const envApiKey = ""; 
