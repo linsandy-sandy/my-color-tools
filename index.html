@@ -48,7 +48,7 @@
     <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
 
     <!-- 標題區 -->
-    <div class="text-center mb-16 relative z-10">
+    <div class="text-center mb-12 relative z-10">
         <div class="inline-block mb-4 px-4 py-1.5 rounded-full border border-slate-700 bg-slate-800/50 text-xs font-medium text-slate-400">
             👋 Welcome to my Lab
         </div>
@@ -57,7 +57,7 @@
         </h1>
         <p class="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
             這是我用 AI 協作打造的個人數位工具箱。<br class="hidden md:block">
-            包含數據視覺化配色、智慧閱讀與影像處理工具。
+            包含數據視覺化配色、智慧閱讀、影像處理與語音朗讀工具。
         </p>
     </div>
 
@@ -88,7 +88,19 @@
             </div>
         </a>
 
-        <!-- 卡片 3: 畫質增強器 -->
+        <!-- 卡片 3: AI 朗讀機 (NEW!) -->
+        <a href="tts.html" class="tool-card group block bg-slate-800/60 rounded-3xl p-8 border border-slate-700/50 relative overflow-hidden">
+            <div class="absolute -right-6 -top-6 text-slate-700/20 group-hover:text-pink-500/10 transition-colors transform rotate-12 duration-500">
+                <svg class="w-40 h-40" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+            </div>
+            <div class="relative z-10">
+                <span class="bg-pink-500/10 text-pink-400 text-xs font-bold px-3 py-1 rounded-full border border-pink-500/20 mb-4 inline-block">Audio</span>
+                <h2 class="text-2xl font-bold mb-2 text-slate-100 group-hover:text-pink-400 transition-colors">AI 朗讀機</h2>
+                <p class="text-slate-400 text-sm">長文朗讀神器。智慧分段、自動捲動，支援台灣口音與語速調整。</p>
+            </div>
+        </a>
+
+        <!-- 卡片 4: 畫質增強器 -->
         <a href="upscale.html" class="tool-card group block bg-slate-800/60 rounded-3xl p-8 border border-slate-700/50 relative overflow-hidden">
             <div class="absolute -right-6 -top-6 text-slate-700/20 group-hover:text-emerald-500/10 transition-colors transform rotate-12 duration-500">
                 <svg class="w-40 h-40" fill="currentColor" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
@@ -100,7 +112,7 @@
             </div>
         </a>
 
-        <!-- 卡片 4: 轉檔神器 (NEW!) -->
+        <!-- 卡片 5: 轉檔神器 -->
         <a href="converter.html" class="tool-card group block bg-slate-800/60 rounded-3xl p-8 border border-slate-700/50 relative overflow-hidden">
             <div class="absolute -right-6 -top-6 text-slate-700/20 group-hover:text-indigo-500/10 transition-colors transform -rotate-12 duration-500">
                 <svg class="w-40 h-40" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-4 6h-4v2h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2v-2h2v-2h-2V9h4v-2zm-8 0h4v2h-2v2h2v2h-2v2h2v2H7V9zm8 4h2v2h-2v-2z"/></svg>

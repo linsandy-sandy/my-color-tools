@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 朗讀機 | Text to Speech</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: white; }
+        
+        /* 捲軸美化 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        /* 高亮正在朗讀的句子 */
+        .highlight {
+            background-color: rgba(251, 191, 36, 0.2); /* Amber-400 alpha */
+            border-bottom: 2px solid #fbbf24;
+            color: #fbbf24;
+            padding: 2px 0;
+            transition: all 0.2s;
+        }
+
+        /* 閱讀模式下的文字容器 */
+        #read-display {
+            line-height: 1.8;
+            letter-spacing: 0.05em;
+            white-space: pre-wrap; /* 保留換行 */
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <!-- 導覽列 -->
+    <nav class="border-b border-slate-700 bg-slate-900/80 backdrop-blur shrink-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <a href="index.html" class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium border border-slate-700 px-3 py-1.5 rounded-lg bg-slate-800">
+                    <span>🏠</span>
+                </a>
+                <span class="font-bold text-lg text-pink-400 tracking-wide">AI 朗讀機</span>
+            </div>
+            
+            <!-- 設定區 -->
+            <div class="flex items-center gap-3">
+                <div class="hidden sm:flex items-center gap-2 bg-slate-800 rounded-lg p-1 border border-slate-700">
+                    <span class="text-xs text-slate-400 px-2">語速</span>
+                    <input type="range" id="rate" min="0.5" max="2" step="0.1" value="1" class="w-24 accent-pink-500 cursor-pointer" oninput="updateRateLabel(this.value)">
+                    <span id="rate-label" class="text-xs text-white w-8 text-center">1.0x</span>
+                </div>
+                
+                <select id="voiceSelect" class="bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-2 py-1.5 outline-none focus:border-pink-500 max-w-[150px] sm:max-w-[200px]">
+                    <option value="">載入語音中...</option>
+                </select>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主畫面 -->
+    <main class="flex-grow flex flex-col p-4 w-full max-w-5xl mx-auto overflow-hidden">
+        
+        <!-- 1. 編輯模式 (輸入區) -->
+        <div id="edit-mode" class="flex-grow flex flex-col h-full">
+            <div class="flex justify-between items-center mb-2">
+                <label class="text-sm font-bold text-slate-400">請貼上文章內容：</label>
+                <button onclick="clearText()" class="text-xs text-slate-500 hover:text-red-400 underline">清空內容</button>
+            </div>
+            <textarea id="text-input" class="w-full flex-grow bg-slate-800 border border-slate-700 rounded-2xl p-6 text-slate-200 focus:outline-none focus:border-pink-500 resize-none text-lg shadow-inner" placeholder="在此貼上小說、文章或報告內容... (建議分段貼上，瀏覽器效能較佳)"></textarea>
+        </div>
+
+        <!-- 2. 閱讀模式 (顯示區) -->
+        <div id="read-mode" class="hidden flex-grow flex-col h-full relative">
+            <div class="flex justify-between items-center mb-2">
+                <div class="text-sm font-bold text-slate-400">正在朗讀： <span id="progress-text" class="text-pink-400">0%</span></div>
+                <button onclick="toggleMode()" class="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    編輯文字
+                </button>
+            </div>
+            <div id="read-display" class="w-full flex-grow bg-slate-800/50 border border-slate-700 rounded-2xl p-6 text-slate-300 overflow-y-auto text-lg shadow-inner relative">
+                <!-- 內容由 JS 生成 -->
+            </div>
+            <!-- 自動捲動鎖定按鈕 -->
+            <button id="auto-scroll-btn" class="absolute bottom-4 right-6 bg-slate-700/80 p-2 rounded-full text-pink-400 shadow-lg hover:bg-slate-600 transition-colors" onclick="toggleAutoScroll()" title="自動捲動開/關">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+            </button>
+        </div>
+
+    </main>
+
+    <!-- 底部控制列 -->
+    <footer class="bg-slate-900 border-t border-slate-800 p-4 shrink-0">
+        <div class="max-w-4xl mx-auto flex items-center justify-center gap-6">
+            
+            <button onclick="stop()" class="p-3 rounded-full text-slate-400 hover:bg-slate-800 hover:text-white transition-all" title="停止並重置">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+            </button>
+
+            <button onclick="prevSentence()" class="p-3 rounded-full text-slate-400 hover:bg-slate-800 hover:text-white transition-all" title="上一句">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/></svg>
+            </button>
+
+            <!-- 播放/暫停大按鈕 -->
+            <button id="play-btn" onclick="togglePlay()" class="w-16 h-16 bg-gradient-to-br from-pink-500 to-rose-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-pink-500/30 hover:scale-105 active:scale-95 transition-all">
+                <svg id="icon-play" class="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                <svg id="icon-pause" class="w-8 h-8 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            </button>
+
+            <button onclick="nextSentence()" class="p-3 rounded-full text-slate-400 hover:bg-slate-800 hover:text-white transition-all" title="下一句">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"/></svg>
+            </button>
+            
+            <!-- 模式切換按鈕 (顯示在手機版底部) -->
+            <button onclick="toggleMode()" class="sm:hidden p-3 rounded-full text-blue-400 hover:bg-slate-800 transition-all" title="切換閱讀模式">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            </button>
+
+        </div>
+    </footer>
+
+    <script>
+        // --- 變數區 ---
+        const synth = window.speechSynthesis;
+        let voices = [];
+        let sentences = []; // 切割後的句子陣列
+        let currentIndex = 0; // 目前讀到第幾句
+        let isPlaying = false;
+        let isPaused = false;
+        let autoScroll = true;
+        let currentUtterance = null;
+
+        // UI 元素
+        const textInput = document.getElementById('text-input');
+        const readDisplay = document.getElementById('read-display');
+        const editMode = document.getElementById('edit-mode');
+        const readMode = document.getElementById('read-mode');
+        const voiceSelect = document.getElementById('voiceSelect');
+        const playBtn = document.getElementById('play-btn');
+        const iconPlay = document.getElementById('icon-play');
+        const iconPause = document.getElementById('icon-pause');
+        const rateSlider = document.getElementById('rate');
+        const progressText = document.getElementById('progress-text');
+
+        // --- 初始化 ---
+        window.onload = () => {
+            loadVoices();
+            // 嘗試讀取上次內容
+            const savedText = localStorage.getItem('tts_content');
+            if(savedText) textInput.value = savedText;
+        };
+
+        // --- 語音載入邏輯 (同 ebook.html) ---
+        function loadVoices() {
+            voices = synth.getVoices();
+            voiceSelect.innerHTML = '';
+            
+            const zhVoices = voices.filter(v => v.lang.includes('zh'));
+            if(zhVoices.length === 0) {
+                voiceSelect.innerHTML = '<option value="">未偵測到中文語音</option>';
+                return;
+            }
+
+            zhVoices.forEach(v => {
+                const opt = document.createElement('option');
+                let label = v.name;
+                if (v.lang === 'zh-TW' || v.name.includes('Taiwan')) label = `🇹🇼 ${v.name}`;
+                opt.value = v.name;
+                opt.textContent = label;
+                voiceSelect.appendChild(opt);
+            });
+
+            // 自動選最好的
+            const best = getBestVoice();
+            if(best) voiceSelect.value = best.name;
+        }
+
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = loadVoices;
+        }
+
+        function getBestVoice() {
+            const priorities = ["Yating", "Hanhan", "Zhiwei", "Google 國語（台灣）", "Meijia"];
+            const twVoices = voices.filter(v => v.lang === 'zh-TW');
+            for (const p of priorities) {
+                const found = twVoices.find(v => v.name.includes(p));
+                if (found) return found;
+            }
+            if (twVoices.length > 0) return twVoices[0];
+            return voices.find(v => v.lang.includes('zh'));
+        }
+
+        function updateRateLabel(val) {
+            document.getElementById('rate-label').innerText = val + 'x';
+        }
+
+        // --- 核心：文字處理與播放 ---
+        
+        function prepareSentences() {
+            const text = textInput.value.trim();
+            if(!text) return false;
+            
+            localStorage.setItem('tts_content', text); // 自動存檔
+
+            // 智慧分段：依照標點符號切割，但保留標點符號在句子裡
+            // Regex: 匹配 (任何非標點字元) + (標點字元 或 換行)
+            // 標點包含：. ? ! ; 。 ？ ！ ； … 以及換行
+            // 這是一個簡單的切分，可能無法完美處理所有狀況，但對朗讀夠用了
+            const rawSentences = text.split(/([.。？?！!；;\n]+)/);
+            
+            sentences = [];
+            for (let i = 0; i < rawSentences.length; i += 2) {
+                const content = rawSentences[i];
+                const punct = rawSentences[i+1] || ""; // 標點可能在最後沒有
+                if (content.trim().length > 0) {
+                    sentences.push(content + punct);
+                }
+            }
+            
+            // 如果切分失敗（例如沒標點），就把整段當一句
+            if(sentences.length === 0 && text.length > 0) sentences = [text];
+
+            return true;
+        }
+
+        function renderReadDisplay() {
+            readDisplay.innerHTML = '';
+            sentences.forEach((s, i) => {
+                const span = document.createElement('span');
+                span.id = `sent-${i}`;
+                span.textContent = s;
+                // 點擊句子可以直接跳轉播放
+                span.className = "cursor-pointer hover:bg-slate-700/50 rounded px-1 transition-colors";
+                span.onclick = () => { currentIndex = i; speakCurrentSentence(); };
+                readDisplay.appendChild(span);
+            });
+        }
+
+        function toggleMode() {
+            if (editMode.classList.contains('hidden')) {
+                // 切回編輯
+                editMode.classList.remove('hidden');
+                readMode.classList.add('hidden');
+                stop(); // 停止播放
+            } else {
+                // 進入閱讀
+                if(prepareSentences()) {
+                    renderReadDisplay();
+                    editMode.classList.add('hidden');
+                    readMode.classList.remove('hidden');
+                    currentIndex = 0;
+                    highlightSentence(0);
+                } else {
+                    alert("請先輸入內容！");
+                }
+            }
+        }
+
+        function togglePlay() {
+            if (editMode.classList.contains('hidden') === false) {
+                // 如果還在編輯模式，先切換過去
+                if(!prepareSentences()) { alert("請先輸入內容！"); return; }
+                renderReadDisplay();
+                editMode.classList.add('hidden');
+                readMode.classList.remove('hidden');
+                currentIndex = 0;
+                play();
+            } else {
+                // 在閱讀模式中
+                if (isPlaying) {
+                    pause();
+                } else {
+                    if (isPaused) resume();
+                    else play();
+                }
+            }
+        }
+
+        function play() {
+            if(sentences.length === 0) return;
+            isPlaying = true;
+            isPaused = false;
+            updatePlayBtn();
+            speakCurrentSentence();
+        }
+
+        function pause() {
+            synth.cancel(); // 直接 cancel 比較乾脆，因為 resume 在某些瀏覽器有 bug
+            isPlaying = false;
+            isPaused = true; // 標記為暫停狀態，下次從同一句開始
+            updatePlayBtn();
+        }
+
+        function resume() {
+            isPlaying = true;
+            isPaused = false;
+            updatePlayBtn();
+            speakCurrentSentence(); // 重新播放當前句子
+        }
+
+        function stop() {
+            synth.cancel();
+            isPlaying = false;
+            isPaused = false;
+            currentIndex = 0;
+            updatePlayBtn();
+            highlightSentence(0); // 重置高亮
+        }
+
+        function prevSentence() {
+            if(currentIndex > 0) {
+                currentIndex--;
+                if(isPlaying) speakCurrentSentence();
+                else highlightSentence(currentIndex);
+            }
+        }
+
+        function nextSentence() {
+            if(currentIndex < sentences.length - 1) {
+                currentIndex++;
+                if(isPlaying) speakCurrentSentence();
+                else highlightSentence(currentIndex);
+            }
+        }
+
+        function speakCurrentSentence() {
+            synth.cancel(); // 確保上一句停掉
+
+            if (currentIndex >= sentences.length) {
+                stop(); // 讀完了
+                return;
+            }
+
+            const text = sentences[currentIndex];
+            highlightSentence(currentIndex);
+            updateProgress();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            
+            // 設定語音
+            const selectedVoiceName = voiceSelect.value;
+            if(selectedVoiceName) {
+                utterance.voice = voices.find(v => v.name === selectedVoiceName);
+            }
+            utterance.rate = parseFloat(rateSlider.value);
+
+            utterance.onend = () => {
+                if (isPlaying) {
+                    currentIndex++;
+                    speakCurrentSentence(); // 自動下一句
+                }
+            };
+
+            utterance.onerror = (e) => {
+                console.error("Speech Error", e);
+                // 遇到錯誤嘗試下一句，避免卡死
+                if (isPlaying) {
+                    currentIndex++;
+                    speakCurrentSentence();
+                }
+            };
+
+            synth.speak(utterance);
+        }
+
+        function highlightSentence(index) {
+            // 移除舊高亮
+            const old = document.querySelector('.highlight');
+            if(old) old.classList.remove('highlight');
+
+            // 新增高亮
+            const el = document.getElementById(`sent-${index}`);
+            if(el) {
+                el.classList.add('highlight');
+                if(autoScroll) {
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+            }
+        }
+
+        function updateProgress() {
+            const pct = Math.round(((currentIndex + 1) / sentences.length) * 100);
+            progressText.innerText = `${pct}% (${currentIndex + 1}/${sentences.length})`;
+        }
+
+        function updatePlayBtn() {
+            if (isPlaying) {
+                iconPlay.classList.add('hidden');
+                iconPause.classList.remove('hidden');
+            } else {
+                iconPlay.classList.remove('hidden');
+                iconPause.classList.add('hidden');
+            }
+        }
+
+        function clearText() {
+            if(confirm("確定要清空所有內容嗎？")) {
+                textInput.value = "";
+                stop();
+                localStorage.removeItem('tts_content');
+            }
+        }
+
+        function toggleAutoScroll() {
+            autoScroll = !autoScroll;
+            const btn = document.getElementById('auto-scroll-btn');
+            btn.style.opacity = autoScroll ? "1" : "0.5";
+        }
+
+    </script>
+</body>
+</html>
