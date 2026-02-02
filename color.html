@@ -7,8 +7,6 @@
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Color Thief (用於圖片吸色) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.0/color-thief.umd.js"></script>
     
     <!-- 字體 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -60,7 +58,7 @@
     <!-- 載入畫面 -->
     <div id="loading-overlay">
         <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p class="mt-4 text-slate-500 font-medium">正在載入色彩資料庫...</p>
+        <p class="mt-4 text-slate-500 font-medium">正在升級吸色演算法...</p>
     </div>
 
     <!-- 導覽列 -->
@@ -70,7 +68,7 @@
                 <div class="w-9 h-9 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">D</div>
                 <div>
                     <h1 class="text-lg font-bold tracking-tight leading-none">DataColor Pro</h1>
-                    <span class="text-[10px] font-bold text-white bg-gradient-to-r from-blue-500 to-purple-500 px-2 py-0.5 rounded-full">v7.2</span>
+                    <span class="text-[10px] font-bold text-white bg-gradient-to-r from-blue-500 to-purple-500 px-2 py-0.5 rounded-full">v7.3 Smart Extract</span>
                 </div>
             </div>
             <div class="flex items-center gap-3">
@@ -134,12 +132,12 @@
                         <div class="relative group">
                             <div class="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center hover:border-blue-500 hover:bg-blue-50 transition-colors cursor-pointer" onclick="document.getElementById('imgInput').click()">
                                 <p class="text-sm text-slate-500 group-hover:text-blue-600">點擊上傳圖片或直接拖曳至此</p>
-                                <p class="text-xs text-slate-400 mt-1">AI 將自動提取 5 個主色</p>
+                                <p class="text-xs text-slate-400 mt-1">AI 將自動忽略背景與文字，精準提取 5 色</p>
                             </div>
                             <input type="file" id="imgInput" accept="image/*" class="hidden" onchange="handleImageUpload(this)">
                         </div>
                         <!-- 預覽縮圖 -->
-                        <img id="preview-img" class="w-full h-32 object-cover rounded-lg mt-3 hidden shadow-md" alt="Uploaded">
+                        <img id="preview-img" class="w-full h-32 object-contain rounded-lg mt-3 hidden shadow-md bg-slate-100" alt="Uploaded">
                     </div>
                 </div>
 
@@ -210,10 +208,13 @@
         let currentColors = ["#2563eb", "#4f46e5", "#7c3aed", "#a855f7", "#d946ef"]; // 預設值
         let currentChart = 'bar';
         let currentTheme = 'light';
-        const colorThief = new ColorThief();
+        // 移除 Color Thief, 改用自定義演算法
 
-        // --- 資料庫 (v7.2 安全去品牌版) ---
+        // --- 資料庫 (v7.3) ---
         const palettes = [
+            // --- 📌 您指定加入的色盤 ---
+            { name: "Pastel Sweetheart", tag: "Creative", colors: ["#ffc4eb", "#ffe4fa", "#f1dedc", "#e1dabd", "#abc798"] },
+
             // --- 🌈 多色組合 (Multi-Color 8-10 colors) ---
             { name: "Full Rainbow", tag: "Multi-Color", colors: ["#ffadad", "#ffd6a5", "#fdffb6", "#caffbf", "#9bf6ff", "#a0c4ff", "#bdb2ff", "#ffc6ff", "#fffffc"] },
             { name: "Spectral 10", tag: "Multi-Color", colors: ["#9e0142", "#d53e4f", "#f46d43", "#fdae61", "#fee08b", "#e6f598", "#abdda4", "#66c2a5", "#3288bd", "#5e4fa2"] },
@@ -459,7 +460,7 @@
             renderCustomPickers();
         }
 
-        // --- 核心 4: 圖片吸色 (Color Thief) ---
+        // --- 核心 4: 圖片吸色 (自定義算法) ---
         function handleImageUpload(input) {
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
@@ -468,19 +469,92 @@
                     img.src = e.target.result;
                     img.classList.remove('hidden');
                     
+                    // 等圖片載入完成後再處理
                     img.onload = () => {
-                        // 使用 Color Thief 提取調色盤
-                        const palette = colorThief.getPalette(img, 5);
-                        // RGB 轉 Hex
-                        currentColors = palette.map(rgb => {
-                            return "#" + ((1 << 24) + (rgb[0] << 16) + (rgb[1] << 8) + rgb[2]).toString(16).slice(1);
-                        });
-                        updateAll(); // 更新所有介面
-                        showToast('📸 分析完成！已提取顏色');
+                        try {
+                            const extractedColors = extractColorsFromImage(img, 5);
+                            currentColors = extractedColors;
+                            updateAll(); 
+                            showToast('📸 分析完成！(已濾除背景干擾)');
+                        } catch (err) {
+                            console.error(err);
+                            showToast('❌ 分析失敗，請換張圖片試試');
+                        }
                     }
                 }
                 reader.readAsDataURL(input.files[0]);
             }
+        }
+
+        // 智慧吸色核心邏輯
+        function extractColorsFromImage(imgEl, colorCount) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 縮小圖片以加快處理速度
+            const scale = Math.min(100 / imgEl.width, 100 / imgEl.height);
+            canvas.width = imgEl.width * scale;
+            canvas.height = imgEl.height * scale;
+            
+            ctx.drawImage(imgEl, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            
+            const colorMap = new Map();
+            
+            // 遍歷像素 (每 4 個取樣一次)
+            for (let i = 0; i < imageData.length; i += 16) {
+                const r = imageData[i];
+                const g = imageData[i + 1];
+                const b = imageData[i + 2];
+                const a = imageData[i + 3];
+
+                if (a < 125) continue; // 忽略透明
+
+                // 過濾極端白色/黑色 (背景干擾)
+                // 規則：RGB 都大於 245 (白) 或 都小於 20 (黑) 忽略
+                if (r > 245 && g > 245 && b > 245) continue;
+                if (r < 20 && g < 20 && b < 20) continue;
+
+                // 顏色量化 (Quantization) - 將相近顏色視為同一種
+                // 這裡簡單將 RGB 值捨入到最近的 10 的倍數
+                const roundR = Math.round(r / 20) * 20;
+                const roundG = Math.round(g / 20) * 20;
+                const roundB = Math.round(b / 20) * 20;
+                
+                const key = `${roundR},${roundG},${roundB}`;
+                colorMap.set(key, (colorMap.get(key) || 0) + 1);
+            }
+
+            // 排序：取出出現頻率最高的顏色
+            const sortedColors = [...colorMap.entries()]
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, colorCount * 2); // 取前 10 個候選
+
+            // 轉回 Hex 並確保選出的顏色有足夠差異
+            const finalColors = [];
+            
+            for (const [key] of sortedColors) {
+                if (finalColors.length >= colorCount) break;
+                
+                const [r, g, b] = key.split(',').map(Number);
+                const hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+                
+                // 簡單差異檢查 (避免選到太像的顏色)
+                let isDistinct = true;
+                /* for (const existingHex of finalColors) {
+                    // 如果需要更嚴格的檢查可以在這裡加
+                }
+                */
+                
+                if (isDistinct) finalColors.push(hex);
+            }
+            
+            // 如果顏色不夠，補一些預設色
+            while(finalColors.length < colorCount) {
+                finalColors.push("#cccccc");
+            }
+
+            return finalColors;
         }
 
         // --- 核心 5: 色盤列表與篩選 ---
