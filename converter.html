@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Universal Image Converter | 萬能轉檔器</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 jsPDF 用於產生 PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: white; }
@@ -22,6 +24,11 @@
 
         /* 進度條 */
         .progress-bar { transition: width 0.3s ease; }
+        
+        /* 格式選擇按鈕 */
+        .format-btn { border: 1px solid #475569; color: #94a3b8; transition: all 0.2s; }
+        .format-btn.active { background-color: #4f46e5; border-color: #4f46e5; color: white; }
+        .format-btn:hover:not(.active) { border-color: #64748b; color: white; }
     </style>
 </head>
 <body class="flex flex-col min-h-screen">
@@ -35,7 +42,7 @@
                 </a>
                 <span class="font-bold text-lg text-indigo-400 tracking-wide">Image Converter</span>
             </div>
-            <div class="text-xs text-slate-500 hidden sm:block">Batch Process to JPG</div>
+            <div class="text-xs text-slate-500 hidden sm:block">JPG & PDF Converter</div>
         </div>
     </nav>
 
@@ -44,8 +51,8 @@
         
         <!-- 標題 -->
         <div class="text-center mb-10">
-            <h1 class="text-3xl md:text-4xl font-bold mb-4">圖片轉 JPG 神器</h1>
-            <p class="text-slate-400">支援 PNG, WEBP, GIF, SVG, BMP 批次轉換。<br>自動填充白底，隱私安全免上傳。</p>
+            <h1 class="text-3xl md:text-4xl font-bold mb-4">圖片轉檔神器</h1>
+            <p class="text-slate-400">支援 JPG / PDF 雙模式輸出。<br>自動填充白底，隱私安全免上傳。</p>
         </div>
 
         <!-- 拖曳上傳區 -->
@@ -54,22 +61,34 @@
                 <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
             </div>
             <h3 class="text-xl font-bold text-white pointer-events-none">點擊或拖曳圖片至此</h3>
-            <p class="text-sm text-slate-500 mt-2 pointer-events-none">支援多檔批次上傳</p>
-            <input type="file" id="fileInput" accept="image/png, image/webp, image/gif, image/svg+xml, image/bmp, image/jpeg" multiple class="hidden" onchange="handleFiles(this.files)">
+            <p class="text-sm text-slate-500 mt-2 pointer-events-none">支援 PNG, WEBP, HEIC(需轉檔), GIF</p>
+            <input type="file" id="fileInput" accept="image/*" multiple class="hidden" onchange="handleFiles(this.files)">
         </div>
 
         <!-- 設定區 -->
-        <div class="w-full max-w-2xl flex justify-between items-center mb-6 px-2">
-            <div class="flex items-center gap-2">
-                <span class="text-sm text-slate-400">品質設定:</span>
-                <select id="quality" class="bg-slate-800 border border-slate-700 text-white text-sm rounded px-2 py-1 outline-none focus:border-indigo-500">
-                    <option value="0.92">92% (推薦)</option>
-                    <option value="1.0">100% (無損)</option>
-                    <option value="0.8">80% (瘦身)</option>
-                    <option value="0.6">60% (極小)</option>
-                </select>
+        <div class="w-full max-w-2xl bg-slate-800/50 p-4 rounded-xl border border-slate-700 flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+            
+            <!-- 輸出格式選擇 -->
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-bold text-slate-300">輸出格式:</span>
+                <div class="flex rounded-lg overflow-hidden">
+                    <button onclick="setFormat('jpg')" id="btn-jpg" class="format-btn active px-4 py-1.5 text-sm font-medium">JPG</button>
+                    <button onclick="setFormat('pdf')" id="btn-pdf" class="format-btn px-4 py-1.5 text-sm font-medium border-l-0">PDF</button>
+                </div>
             </div>
-            <button onclick="clearAll()" class="text-xs text-red-400 hover:text-red-300 underline">清空列表</button>
+
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-slate-400">品質:</span>
+                    <select id="quality" class="bg-slate-800 border border-slate-600 text-white text-sm rounded px-2 py-1 outline-none focus:border-indigo-500">
+                        <option value="0.92">92% (推薦)</option>
+                        <option value="1.0">100% (無損)</option>
+                        <option value="0.8">80% (瘦身)</option>
+                        <option value="0.6">60% (極小)</option>
+                    </select>
+                </div>
+                <button onclick="clearAll()" class="text-xs text-red-400 hover:text-red-300 underline">清空</button>
+            </div>
         </div>
 
         <!-- 檔案列表 -->
@@ -87,16 +106,21 @@
         const dropZone = document.getElementById('drop-zone');
         const fileList = document.getElementById('file-list');
         const qualitySelect = document.getElementById('quality');
+        let currentFormat = 'jpg'; // 預設格式
+
+        // --- 格式切換 ---
+        function setFormat(fmt) {
+            currentFormat = fmt;
+            document.getElementById('btn-jpg').className = `format-btn px-4 py-1.5 text-sm font-medium ${fmt === 'jpg' ? 'active' : ''}`;
+            document.getElementById('btn-pdf').className = `format-btn px-4 py-1.5 text-sm font-medium border-l-0 ${fmt === 'pdf' ? 'active' : ''}`;
+        }
 
         // --- 拖曳事件 ---
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             dropZone.addEventListener(eventName, preventDefaults, false);
         });
 
-        function preventDefaults(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
+        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
 
         ['dragenter', 'dragover'].forEach(eventName => {
             dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
@@ -119,17 +143,13 @@
             const validTypes = ['image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/bmp', 'image/jpeg'];
             
             ([...files]).forEach(file => {
-                // 1. 檢查格式
-                if (!validTypes.includes(file.type)) {
-                    alert(`不支援的格式: ${file.name}\n目前僅支援瀏覽器原生格式 (PNG, GIF, WEBP, SVG, BMP)`);
+                if (!file.type.startsWith('image/')) {
+                    alert(`不支援的格式: ${file.name}`);
                     return;
                 }
 
-                // 2. 建立 UI 卡片
                 const id = Math.random().toString(36).substr(2, 9);
                 createFileCard(id, file);
-
-                // 3. 開始轉檔
                 convertImage(id, file);
             });
         }
@@ -150,7 +170,7 @@
                     <div class="flex items-center gap-2 text-xs text-slate-500">
                         <span>${(file.size/1024).toFixed(1)} KB</span>
                         <span>→</span>
-                        <span class="font-bold text-slate-300">JPG</span>
+                        <span class="font-bold text-slate-300 target-ext">${currentFormat.toUpperCase()}</span>
                     </div>
                     <div class="w-full bg-slate-700 h-1 mt-2 rounded-full overflow-hidden">
                         <div id="progress-${id}" class="progress-bar bg-indigo-500 h-full w-0"></div>
@@ -170,31 +190,54 @@
                 img.src = e.target.result;
                 
                 img.onload = () => {
-                    // 更新縮圖
                     document.getElementById(`thumb-${id}`).src = img.src;
                     document.getElementById(`thumb-${id}`).classList.remove('opacity-50');
 
-                    // 建立 Canvas
+                    // 1. 準備 Canvas
                     const canvas = document.createElement('canvas');
                     canvas.width = img.width;
                     canvas.height = img.height;
                     const ctx = canvas.getContext('2d');
 
-                    // 關鍵：填充白色背景 (解決 PNG 透明變黑的問題)
+                    // 2. 填充白底 (解決透明問題)
                     ctx.fillStyle = "#FFFFFF";
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                    // 繪製圖片
                     ctx.drawImage(img, 0, 0);
 
-                    // 匯出 JPG
+                    // 3. 根據選擇格式輸出
                     const quality = parseFloat(qualitySelect.value);
-                    const newDataUrl = canvas.toDataURL('image/jpeg', quality);
+                    const btn = document.getElementById(`btn-${id}`);
                     
-                    // 計算新大小
-                    const head = 'data:image/jpeg;base64,';
-                    const fileSize = Math.round((newDataUrl.length - head.length) * 3 / 4);
-                    
+                    if (currentFormat === 'pdf') {
+                        // --- PDF 模式 ---
+                        const { jsPDF } = window.jspdf;
+                        
+                        // 建立 PDF，尺寸設定為圖片像素大小 (unit: 'px')
+                        // 這樣轉出來的 PDF 會跟圖片一樣大，不會有白邊
+                        const pdf = new jsPDF({
+                            orientation: img.width > img.height ? 'l' : 'p',
+                            unit: 'px',
+                            format: [img.width, img.height]
+                        });
+
+                        const imgData = canvas.toDataURL('image/jpeg', quality);
+                        pdf.addImage(imgData, 'JPEG', 0, 0, img.width, img.height);
+                        
+                        const pdfBlob = pdf.output('blob');
+                        const pdfUrl = URL.createObjectURL(pdfBlob);
+                        
+                        btn.href = pdfUrl;
+                        btn.download = file.name.replace(/\.[^/.]+$/, "") + ".pdf";
+                        btn.innerText = "下載 PDF";
+                        
+                    } else {
+                        // --- JPG 模式 ---
+                        const jpgUrl = canvas.toDataURL('image/jpeg', quality);
+                        btn.href = jpgUrl;
+                        btn.download = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+                        btn.innerText = "下載 JPG";
+                    }
+
                     // 更新 UI
                     const progressBar = document.getElementById(`progress-${id}`);
                     progressBar.style.width = "100%";
@@ -204,14 +247,7 @@
                     statusText.innerText = "完成";
                     statusText.classList.replace('text-indigo-400', 'text-green-400');
 
-                    // 設定下載按鈕
-                    const btn = document.getElementById(`btn-${id}`);
-                    btn.href = newDataUrl;
-                    // 新檔名：原檔名去除副檔名 + .jpg
-                    const newName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
-                    btn.download = newName;
                     btn.classList.remove('hidden');
-                    btn.innerText = `下載 (${(fileSize/1024).toFixed(1)} KB)`;
                 };
             };
             reader.readAsDataURL(file);
