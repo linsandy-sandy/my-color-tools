@@ -7,6 +7,8 @@
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Color Thief (用於圖片吸色) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.0/color-thief.umd.js"></script>
     
     <!-- 字體 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -58,7 +60,7 @@
     <!-- 載入畫面 -->
     <div id="loading-overlay">
         <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p class="mt-4 text-slate-500 font-medium">正在升級吸色演算法...</p>
+        <p class="mt-4 text-slate-500 font-medium">正在校正色彩數據...</p>
     </div>
 
     <!-- 導覽列 -->
@@ -68,7 +70,7 @@
                 <div class="w-9 h-9 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">D</div>
                 <div>
                     <h1 class="text-lg font-bold tracking-tight leading-none">DataColor Pro</h1>
-                    <span class="text-[10px] font-bold text-white bg-gradient-to-r from-blue-500 to-purple-500 px-2 py-0.5 rounded-full">v7.3 Smart Extract</span>
+                    <span class="text-[10px] font-bold text-white bg-gradient-to-r from-blue-500 to-purple-500 px-2 py-0.5 rounded-full">v7.5 Precision</span>
                 </div>
             </div>
             <div class="flex items-center gap-3">
@@ -208,11 +210,15 @@
         let currentColors = ["#2563eb", "#4f46e5", "#7c3aed", "#a855f7", "#d946ef"]; // 預設值
         let currentChart = 'bar';
         let currentTheme = 'light';
-        // 移除 Color Thief, 改用自定義演算法
+        const colorThief = new ColorThief();
 
-        // --- 資料庫 (v7.3) ---
+        // --- 資料庫 (v7.5 PRECISION) ---
         const palettes = [
-            // --- 📌 您指定加入的色盤 ---
+            // --- 📌 您的客製化漸層色盤 (Updated to precise hex) ---
+            { name: "Forest to Gold", tag: "Nature", colors: ["#0b3d2e", "#145a32", "#1e7f43", "#4faf6e", "#9ed9b0", "#f1c854", "#e3b842", "#d4a72f", "#c6971d", "#b8860b"] },
+            { name: "Verdant to Lemon", tag: "Nature", colors: ["#007f5f", "#2b9348", "#55a630", "#80b918", "#aacc00", "#bfd200", "#d4d700", "#dddf00", "#eeef20", "#ffff3f"] },
+
+            // --- 📌 您之前加入的色盤 ---
             { name: "Pastel Sweetheart", tag: "Creative", colors: ["#ffc4eb", "#ffe4fa", "#f1dedc", "#e1dabd", "#abc798"] },
 
             // --- 🌈 多色組合 (Multi-Color 8-10 colors) ---
