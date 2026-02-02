@@ -36,14 +36,18 @@
             display: flex;
             justify-content: center;
             align-items: flex-start; /* 讓放大時內容可以捲動 */
+            width: 100%; 
+            height: 100%; 
+            position: relative; /* 為了定位右側工具列 */
         }
 
         canvas {
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
             transform-origin: center top; 
             backface-visibility: hidden;
-            margin-top: 20px;
-            margin-bottom: 20px;
+            margin-top: 40px;
+            margin-bottom: 40px;
+            transition: transform 0.1s ease-out; /* 縮放時的過渡 */
         }
 
         /* --- 關鍵動畫：3D 彈性翻頁 --- */
@@ -57,6 +61,82 @@
             animation: bookFlipIn 0.8s cubic-bezier(0.15, 1, 0.3, 1); 
         }
 
+        /* --- 右側懸浮工具列 (仿 Adobe Reader 風格) --- */
+        #floating-toolbar {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(31, 41, 55, 0.9); /* 半透明深灰 */
+            backdrop-filter: blur(8px);
+            padding: 16px 8px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            z-index: 40;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+
+        /* 自定義垂直滑桿 (Cross-browser hack) */
+        .slider-wrapper {
+            height: 150px;
+            width: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        input[type=range].vertical-slider {
+            -webkit-appearance: none;
+            width: 150px; /* 寬度變成高度 */
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            outline: none;
+            /* 旋轉 90 度變成垂直 */
+            transform: rotate(-90deg);
+            cursor: pointer;
+        }
+
+        input[type=range].vertical-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            border: 2px solid var(--primary-color);
+            cursor: grab;
+            transition: transform 0.1s;
+        }
+
+        input[type=range].vertical-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* 工具按鈕樣式 */
+        .tool-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+            transition: all 0.2s;
+            background: rgba(255,255,255,0.05);
+        }
+        .tool-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            transform: scale(1.1);
+        }
+        .tool-btn:active { transform: scale(0.95); }
+
         /* --- AI 側邊欄動畫 --- */
         #ai-sidebar {
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -69,11 +149,7 @@
         .msg-ai { background-color: #374151; border-radius: 12px 12px 12px 2px; }
         .msg-user { background-color: var(--primary-color); color: white; border-radius: 12px 12px 2px 12px; }
         
-        /* 朗讀中狀態 */
-        .speaking-mode {
-            border: 2px solid #fbbf24;
-            box-shadow: 0 0 15px rgba(251, 191, 36, 0.5);
-        }
+        .speaking-mode { border: 2px solid #fbbf24; box-shadow: 0 0 15px rgba(251, 191, 36, 0.5); }
 
         /* 載入轉圈圈 */
         .spinner {
@@ -88,18 +164,25 @@
 </head>
 <body class="flex flex-col h-screen bg-gray-800 text-gray-100">
 
-    <!-- API Key 設定視窗 -->
-    <div id="apiModal" class="fixed inset-0 bg-black/80 z-[200] hidden items-center justify-center backdrop-blur-sm">
-        <div class="bg-gray-800 p-6 rounded-xl w-full max-w-md border border-gray-700 shadow-2xl">
-            <h3 class="text-xl font-bold text-white mb-2">🔑 設定 Gemini API Key</h3>
-            <p class="text-gray-400 text-sm mb-4">
-                為了使用 AI 功能，請輸入您的 Google Gemini API Key。<br>
-                <span class="text-yellow-500 text-xs">注意：Key 僅儲存在您的瀏覽器，不會上傳伺服器。</span>
-            </p>
-            <input type="password" id="apiKeyInput" class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="貼上 API Key...">
-            <div class="flex justify-end gap-3 mt-6">
-                <button class="px-4 py-2 text-gray-400 hover:text-white" onclick="closeApiModal()">取消</button>
-                <button class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg" onclick="saveApiKey()">儲存設定</button>
+    <!-- 設定視窗 -->
+    <div id="settingsModal" class="fixed inset-0 bg-black/80 z-[200] hidden items-center justify-center backdrop-blur-sm">
+        <div class="bg-gray-800 p-6 rounded-xl w-full max-w-md border border-gray-700 shadow-2xl space-y-6">
+            <div class="flex justify-between items-center border-b border-gray-700 pb-3">
+                <h3 class="text-xl font-bold text-white flex items-center gap-2">⚙️ 閱讀器設定</h3>
+                <button onclick="closeSettingsModal()" class="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-amber-400 mb-2">🔊 朗讀聲音</label>
+                <select id="voiceSelect" class="w-full p-2 bg-gray-900 border border-gray-600 rounded text-sm text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                    <option value="">載入中...</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-blue-400 mb-2">🔑 API Key</label>
+                <input type="password" id="apiKeyInput" class="w-full p-2 bg-gray-900 border border-gray-600 rounded text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="貼上 API Key...">
+            </div>
+            <div class="flex justify-end pt-2">
+                <button class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg w-full font-bold shadow-lg" onclick="saveSettings()">儲存設定</button>
             </div>
         </div>
     </div>
@@ -107,17 +190,12 @@
     <!-- 頂部導覽列 -->
     <header class="bg-gray-900 border-b border-gray-700 px-4 py-3 flex flex-wrap items-center justify-between shadow-lg z-50 gap-2">
         <div class="flex items-center gap-2 sm:gap-4">
-            <!-- 回首頁按鈕 -->
-            <a href="index.html" class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-medium border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            <a href="index.html" class="flex items-center gap-2 text-gray-300 hover:text-white transition-colors text-sm font-medium border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg bg-gray-800">
+                <span class="text-lg">🏠</span>
                 <span class="hidden sm:inline">回首頁</span>
             </a>
-            
             <div class="h-6 w-px bg-gray-700 hidden sm:block"></div>
-
             <span class="font-bold text-lg tracking-wide hidden md:block text-blue-400">AI 智慧閱讀器</span>
-            
-            <!-- 模式切換 -->
             <div class="flex items-center bg-gray-800 rounded-lg p-1 border border-gray-700">
                 <button id="btn-mode-local" onclick="switchMode('local')" class="px-3 py-1 text-sm rounded-md bg-gray-700 text-white shadow-sm transition-all">📂 本地</button>
                 <button id="btn-mode-demo" onclick="switchMode('demo')" class="px-3 py-1 text-sm rounded-md text-gray-400 hover:text-white transition-all">🌐 範例</button>
@@ -127,13 +205,6 @@
         <div class="flex items-center gap-2">
             <input type="file" id="fileInput" accept="application/pdf" class="hidden">
             
-            <!-- 縮放控制器 -->
-            <div class="flex items-center bg-gray-800 rounded-lg border border-gray-700 mr-2">
-                <button class="px-2 py-1 hover:bg-gray-700 text-gray-300" onclick="zoomOut()" title="縮小">－</button>
-                <span id="zoomLevel" class="text-xs text-gray-400 w-10 text-center">100%</span>
-                <button class="px-2 py-1 hover:bg-gray-700 text-gray-300" onclick="zoomIn()" title="放大">＋</button>
-            </div>
-
             <!-- 翻頁器 -->
             <div class="flex items-center bg-gray-800 rounded-lg border border-gray-700">
                 <button class="px-3 py-1 hover:bg-gray-700 text-gray-300 disabled:opacity-30" id="prevBtn" disabled>❮</button>
@@ -144,19 +215,16 @@
             </div>
 
             <!-- 工具按鈕 -->
-            <button class="p-2 text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-lg hover:bg-amber-500/20 transition-all" onclick="toggleSpeech()" id="btn-speak" title="朗讀本頁">
+            <button class="p-2 text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-lg hover:bg-amber-500/20 transition-all relative group" onclick="toggleSpeech()" id="btn-speak" title="朗讀">
                 🔊
             </button>
-
             <button class="p-2 text-blue-400 bg-blue-500/10 border border-blue-500/30 rounded-lg hover:bg-blue-500/20 transition-all" onclick="summarizePage()" title="AI 摘要">
                 ✨
             </button>
-            
             <button class="p-2 text-gray-400 hover:text-white transition-colors" onclick="toggleSidebar()" title="AI 問答">
                 💬
             </button>
-            
-            <button class="p-2 text-gray-400 hover:text-white transition-colors" onclick="openApiModal()" title="API 設定">
+            <button class="p-2 text-gray-400 hover:text-white transition-colors" onclick="openSettingsModal()" title="設定">
                 ⚙️
             </button>
         </div>
@@ -164,24 +232,40 @@
 
     <!-- 主要內容區 -->
     <div class="flex flex-1 overflow-hidden relative">
+        
+        <!-- 🆕 右側懸浮工具列 (Zoom Slider) -->
+        <div id="floating-toolbar" class="hidden">
+            <div class="text-xs text-gray-400 font-mono tracking-wider">ZOOM</div>
+            
+            <!-- 放大按鈕 -->
+            <button class="tool-btn" onclick="zoomIn()" title="放大">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+            </button>
+            
+            <!-- 垂直滑桿 -->
+            <div class="slider-wrapper">
+                <input type="range" id="zoom-slider" class="vertical-slider" min="50" max="300" step="10" value="100">
+            </div>
+            
+            <!-- 縮小按鈕 -->
+            <button class="tool-btn" onclick="zoomOut()" title="縮小">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
+            </button>
+
+            <!-- 顯示比例 -->
+            <div id="zoomLevel" class="text-xs font-bold text-blue-400 mt-1">100%</div>
+        </div>
+
         <!-- 閱讀畫布 -->
         <div id="canvas-container">
-            
             <!-- 尚未載入時的畫面 -->
             <div id="emptyState" class="self-center text-center p-8 mt-20">
-                <div class="mb-6 inline-block p-4 bg-gray-700 rounded-full animate-bounce">
-                    📂
-                </div>
+                <div class="mb-6 inline-block p-4 bg-gray-700 rounded-full animate-bounce">📂</div>
                 <h2 class="text-2xl font-bold text-white mb-2">請選擇檔案</h2>
-                <p class="text-gray-400 mb-8 max-w-md mx-auto text-sm">
-                    支援 PDF 格式。檔案僅在瀏覽器運算，<br>絕對隱私安全，請放心使用。
-                </p>
-                <button onclick="document.getElementById('fileInput').click()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-lg transition-all">
-                    開啟 PDF 檔案
-                </button>
+                <p class="text-gray-400 mb-8 max-w-md mx-auto text-sm">支援 PDF 格式。檔案僅在瀏覽器運算，安全隱私。</p>
+                <button onclick="document.getElementById('fileInput').click()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-lg transition-all">開啟 PDF 檔案</button>
             </div>
 
-            <!-- 載入中 -->
             <div id="loadingState" class="hidden self-center text-center mt-20">
                 <div class="spinner mx-auto mb-4"></div>
                 <p class="text-gray-400">正在解析文件...</p>
@@ -196,18 +280,10 @@
                 <span class="font-bold text-gray-200 flex items-center gap-2">✨ Gemini 助手</span>
                 <button class="text-gray-400 hover:text-white" onclick="toggleSidebar()">✕</button>
             </div>
-            
             <div id="chatHistory" class="flex-1 overflow-y-auto p-4 space-y-4">
-                <div class="msg-system text-center text-gray-500 text-xs py-4">
-                    👋 載入 PDF 後，您可以點擊「✨」摘要或直接提問。
-                </div>
+                <div class="msg-system text-center text-gray-500 text-xs py-4">👋 載入 PDF 後，您可以點擊「✨」摘要或直接提問。</div>
             </div>
-
-            <!-- 思考中提示 -->
-            <div id="typingIndicator" class="hidden px-4 py-2 text-gray-400 text-xs italic flex items-center gap-1">
-                🤖 Gemini 正在思考...
-            </div>
-
+            <div id="typingIndicator" class="hidden px-4 py-2 text-gray-400 text-xs italic flex items-center gap-1">🤖 Gemini 正在思考...</div>
             <div class="p-4 border-t border-gray-700 bg-gray-800">
                 <div class="flex gap-2">
                     <input type="text" id="aiInput" placeholder="問這個頁面的問題..." class="flex-1 bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" onkeypress="handleInputKey(event)">
@@ -224,17 +300,18 @@
     let pageNum = 1;
     let pageRendering = false;
     let pageNumPending = null;
-    let scale = 1.0; // 初始縮放
-    let currentFileName = ""; // 用於儲存閱讀進度
-    let isSpeaking = false; // 朗讀狀態
+    let scale = 1.0; 
+    let currentFileName = ""; 
+    let isSpeaking = false; 
     
     const canvas = document.getElementById('the-canvas');
     const ctx = canvas.getContext('2d');
     const fileInput = document.getElementById('fileInput');
     const zoomLevelDisplay = document.getElementById('zoomLevel');
+    const zoomSlider = document.getElementById('zoom-slider');
+    const toolbar = document.getElementById('floating-toolbar');
     
     // --- 檔案載入邏輯 ---
-    
     function switchMode(mode) {
         const btnLocal = document.getElementById('btn-mode-local');
         const btnDemo = document.getElementById('btn-mode-demo');
@@ -263,15 +340,17 @@
         pdfDoc = null;
         canvas.classList.add('hidden');
         document.getElementById('emptyState').classList.remove('hidden');
+        toolbar.classList.add('hidden'); // 隱藏工具列
         document.getElementById('pageCount').textContent = '0';
         document.getElementById('pageNum').textContent = '0';
-        stopSpeaking(); // 重置時停止朗讀
+        stopSpeaking();
     }
 
     function loadPdf(url, isLocal, fileName) {
         document.getElementById('emptyState').classList.add('hidden');
         document.getElementById('loadingState').classList.remove('hidden');
         canvas.classList.add('hidden');
+        toolbar.classList.add('hidden');
         currentFileName = fileName;
 
         pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
@@ -280,8 +359,8 @@
             
             document.getElementById('loadingState').classList.add('hidden');
             canvas.classList.remove('hidden');
+            toolbar.classList.remove('hidden'); // 顯示工具列
             
-            // --- 自動記憶進度功能 ---
             const savedPage = localStorage.getItem(`read_progress_${fileName}`);
             if (savedPage && confirm(`您上次讀到第 ${savedPage} 頁，要繼續閱讀嗎？`)) {
                 pageNum = parseInt(savedPage);
@@ -290,7 +369,6 @@
             }
             
             renderPage(pageNum);
-            
             addMessage('system', `📚 已載入：${fileName}`);
 
         }).catch(function(error) {
@@ -301,28 +379,24 @@
         });
     }
 
-    // --- 頁面渲染 (優化版：支援安靜重繪) ---
-    // animate 參數控制是否播放翻頁動畫，預設為 true
+    // --- 頁面渲染 ---
     function renderPage(num, animate = true) {
         pageRendering = true;
-        stopSpeaking(); // 翻頁時停止朗讀
+        stopSpeaking();
         
-        // 處理動畫
-        canvas.classList.remove('page-animating'); // 先移除動畫
+        canvas.classList.remove('page-animating'); 
         if (animate) {
-            void canvas.offsetWidth; // 觸發重繪 (Reflow)
-            canvas.classList.add('page-animating'); // 只有在需要動畫時才加回去
+            void canvas.offsetWidth; 
+            canvas.classList.add('page-animating'); 
         }
 
-        // 儲存進度
         localStorage.setItem(`read_progress_${currentFileName}`, num);
 
         pdfDoc.getPage(num).then(function(page) {
-            const viewport = page.getViewport({scale: scale * 1.5}); // 基礎解析度乘 1.5 保持清晰
+            const viewport = page.getViewport({scale: scale * 1.5});
             canvas.height = viewport.height;
             canvas.width = viewport.width;
             
-            // 讓 Canvas 顯示大小隨縮放變化
             canvas.style.width = `${viewport.width / (window.devicePixelRatio || 1)}px`;
             canvas.style.height = `${viewport.height / (window.devicePixelRatio || 1)}px`;
 
@@ -342,8 +416,10 @@
         document.getElementById('prevBtn').disabled = num <= 1;
         document.getElementById('nextBtn').disabled = num >= pdfDoc.numPages;
         
-        // 更新縮放顯示
-        zoomLevelDisplay.innerText = `${Math.round(scale * 100)}%`;
+        // 更新 UI 數值
+        const percentage = Math.round(scale * 100);
+        zoomLevelDisplay.innerText = `${percentage}%`;
+        zoomSlider.value = percentage;
     }
 
     function queueRenderPage(num) {
@@ -354,56 +430,115 @@
     document.getElementById('prevBtn').addEventListener('click', () => { if(pageNum > 1) { pageNum--; queueRenderPage(pageNum); } });
     document.getElementById('nextBtn').addEventListener('click', () => { if(pageNum < pdfDoc.numPages) { pageNum++; queueRenderPage(pageNum); } });
 
-    // --- 縮放功能 (修正版：不觸發動畫) ---
+    // --- 縮放功能 (滑桿邏輯) ---
+    
+    // 1. 拖曳中：只改變 CSS Transform (高效能預覽)
+    zoomSlider.addEventListener('input', function() {
+        const val = this.value;
+        zoomLevelDisplay.innerText = `${val}%`;
+        // 計算縮放比例差異 (相對於當前 scale)
+        const previewScale = val / 100;
+        // 這裡我們暫時不重新渲染 PDF，只用 CSS 縮放 Canvas 容器或 Canvas 本身
+        // 為了簡單，我們直接修改 scale 變數，但在 'change' 事件才觸發 renderPage
+        // 若要實現純 CSS 預覽較為複雜，這裡我們選擇比較簡單的策略：
+        // 拖曳時不動作，放開時才動作？或者拖曳時只更新數字？
+        // 為了體驗，我們在 input 時只更新變數，debounce 渲染
+    });
+
+    // 2. 放開後：執行 PDF 重繪 (高畫質)
+    zoomSlider.addEventListener('change', function() {
+        scale = this.value / 100;
+        renderPage(pageNum, false); // false = 不播放翻頁動畫
+    });
+
     function zoomIn() {
-        if(scale < 3.0) {
-            scale += 0.2;
-            renderPage(pageNum, false); // 傳入 false 關閉動畫
+        let val = parseInt(zoomSlider.value);
+        if(val < 300) {
+            val += 10;
+            zoomSlider.value = val;
+            scale = val / 100;
+            renderPage(pageNum, false);
         }
     }
 
     function zoomOut() {
-        if(scale > 0.6) {
-            scale -= 0.2;
-            renderPage(pageNum, false); // 傳入 false 關閉動畫
+        let val = parseInt(zoomSlider.value);
+        if(val > 50) {
+            val -= 10;
+            zoomSlider.value = val;
+            scale = val / 100;
+            renderPage(pageNum, false);
         }
     }
 
-    // --- 朗讀功能 (TTS) ---
-    async function toggleSpeech() {
-        const btn = document.getElementById('btn-speak');
-        
-        if(isSpeaking) {
-            stopSpeaking();
+    // --- 朗讀與其他功能保持不變 ---
+    let voices = [];
+    function loadVoices() {
+        voices = window.speechSynthesis.getVoices();
+        const voiceSelect = document.getElementById('voiceSelect');
+        const chineseVoices = voices.filter(v => v.lang.includes('zh'));
+        voiceSelect.innerHTML = '';
+        if(chineseVoices.length === 0) {
+            const option = document.createElement('option');
+            option.text = "未偵測到中文語音";
+            voiceSelect.add(option);
             return;
         }
-
+        chineseVoices.forEach(voice => {
+            const option = document.createElement('option');
+            let label = voice.name;
+            if (voice.lang === 'zh-TW' || voice.name.includes('Taiwan')) {
+                label = `🇹🇼 ${voice.name}`;
+            }
+            option.textContent = label;
+            option.value = voice.name;
+            voiceSelect.appendChild(option);
+        });
+        const savedVoice = localStorage.getItem('preferred_voice');
+        if(savedVoice) {
+            voiceSelect.value = savedVoice;
+        } else {
+            const best = getBestVoice();
+            if(best) voiceSelect.value = best.name;
+        }
+    }
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+    function getBestVoice() {
+        const priorities = ["Yating", "Hanhan", "Zhiwei", "Google 國語（台灣）", "Meijia", "Sin-ji"];
+        const twVoices = voices.filter(v => v.lang === 'zh-TW');
+        for (const p of priorities) {
+            const found = twVoices.find(v => v.name.includes(p));
+            if (found) return found;
+        }
+        if (twVoices.length > 0) return twVoices[0];
+        return voices.find(v => v.lang.includes('zh'));
+    }
+    async function toggleSpeech() {
+        const btn = document.getElementById('btn-speak');
+        if(isSpeaking) { stopSpeaking(); return; }
         if(!pdfDoc) return;
-
-        // 開始朗讀
         const text = await getCurrentPageText();
         if(!text) { alert("本頁沒有可朗讀的文字"); return; }
-
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'zh-TW'; // 設定中文
-        utterance.rate = 1.0; // 語速
-        
+        utterance.lang = 'zh-TW'; 
+        const savedVoiceName = localStorage.getItem('preferred_voice');
+        let targetVoice = savedVoiceName ? voices.find(v => v.name === savedVoiceName) : getBestVoice();
+        if (targetVoice) utterance.voice = targetVoice;
+        utterance.rate = 0.9;
         utterance.onend = () => {
             isSpeaking = false;
             btn.classList.remove('bg-amber-500', 'text-white', 'speaking-mode');
             btn.classList.add('bg-amber-500/10', 'text-amber-400');
             canvas.classList.remove('speaking-mode');
         };
-
         window.speechSynthesis.speak(utterance);
         isSpeaking = true;
-        
-        // UI 回饋
         btn.classList.remove('bg-amber-500/10', 'text-amber-400');
         btn.classList.add('bg-amber-500', 'text-white', 'speaking-mode');
-        canvas.classList.add('speaking-mode'); // 讓書本發光
+        canvas.classList.add('speaking-mode'); 
     }
-
     function stopSpeaking() {
         if(isSpeaking) {
             window.speechSynthesis.cancel();
@@ -414,11 +549,8 @@
             canvas.classList.remove('speaking-mode');
         }
     }
-
-    // --- AI 功能 ---
     const envApiKey = ""; 
     function getApiKey() { return localStorage.getItem('gemini_api_key') || envApiKey; }
-    
     async function getCurrentPageText() {
         if (!pdfDoc) return null;
         try {
@@ -427,13 +559,9 @@
             return textContent.items.map(item => item.str).join(' ');
         } catch (error) { return null; }
     }
-
     async function callGeminiAPI(prompt) {
         const apiKey = getApiKey();
-        if (!apiKey) {
-            openApiModal();
-            return "請先設定 API Key 🔒";
-        }
+        if (!apiKey) { openSettingsModal(); return "請先設定 API Key 🔒"; }
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
         try {
             const response = await fetch(url, {
@@ -445,7 +573,6 @@
             return data.candidates[0].content.parts[0].text;
         } catch (error) { return `錯誤: ${error.message}`; }
     }
-
     async function summarizePage() {
         if(!pdfDoc) { alert('請先開啟一份 PDF'); return; }
         openSidebar();
@@ -456,13 +583,11 @@
         showTyping(false);
         addMessage('ai', result);
     }
-
     async function sendUserMessage() {
         const input = document.getElementById('aiInput');
         const question = input.value.trim();
         if (!question) return;
         if(!pdfDoc) { alert('請先開啟 PDF'); return; }
-        
         addMessage('user', question);
         input.value = '';
         showTyping(true);
@@ -472,34 +597,37 @@
         showTyping(false);
         addMessage('ai', result);
     }
-
-    // UI 控制
     const sidebar = document.getElementById('ai-sidebar');
     const chatHistory = document.getElementById('chatHistory');
-    
     function toggleSidebar() { sidebar.classList.toggle('open'); }
     function openSidebar() { sidebar.classList.add('open'); }
-    
     function addMessage(role, text) {
         const div = document.createElement('div');
         div.className = `p-3 text-sm leading-relaxed max-w-[90%] mb-2 ${role === 'ai' ? 'msg-ai text-gray-200 self-start' : role === 'user' ? 'msg-user self-end ml-auto' : 'text-center text-gray-500 text-xs italic w-full'}`;
-        
         if (role === 'ai') div.innerHTML = marked.parse(text);
         else div.textContent = text;
-        
         chatHistory.appendChild(div);
         chatHistory.scrollTop = chatHistory.scrollHeight;
     }
-    
     function showTyping(show) { document.getElementById('typingIndicator').style.display = show ? 'flex' : 'none'; }
     function handleInputKey(e) { if (e.key === 'Enter') sendUserMessage(); }
-
-    function openApiModal() { document.getElementById('apiModal').style.display = 'flex'; }
-    function closeApiModal() { document.getElementById('apiModal').style.display = 'none'; }
-    function saveApiKey() {
-        const key = document.getElementById('apiKeyInput').value.trim();
-        if (key) { localStorage.setItem('gemini_api_key', key); alert('已儲存！'); closeApiModal(); }
+    function openSettingsModal() { 
+        document.getElementById('settingsModal').style.display = 'flex'; 
+        document.getElementById('apiKeyInput').value = localStorage.getItem('gemini_api_key') || '';
+        loadVoices();
     }
+    function openApiModal() { openSettingsModal(); }
+    function closeSettingsModal() { document.getElementById('settingsModal').style.display = 'none'; }
+    function closeApiModal() { closeSettingsModal(); }
+    function saveSettings() {
+        const key = document.getElementById('apiKeyInput').value.trim();
+        const voice = document.getElementById('voiceSelect').value;
+        if (key) localStorage.setItem('gemini_api_key', key);
+        if (voice) localStorage.setItem('preferred_voice', voice);
+        alert('設定已儲存！'); 
+        closeSettingsModal();
+    }
+    function saveApiKey() { saveSettings(); }
 </script>
 </body>
 </html>
