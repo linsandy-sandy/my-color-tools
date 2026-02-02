@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandy 的 AI 私密閱讀器</title>
+    <!-- 引入 PDF.js 核心庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <!-- 引入 Markdown 解析庫 (讓 AI 回答有排版) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- 引入 Tailwind CSS (美化介面) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary-color: #3b82f6; 
+            --bg-color: #1f2937;      
+        }
+
+        body {
+            font-family: "Microsoft JhengHei", "Inter", sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            color: #f3f4f6;
+            overflow: hidden;
+        }
+
+        /* --- 閱讀區背景與陰影 --- */
+        #canvas-container {
+            background-image: radial-gradient(#374151 1px, transparent 1px);
+            background-size: 20px 20px;
+            perspective: 1000px; /* 3D 深度 */
+        }
+
+        canvas {
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            transform-origin: center left; /* 翻頁軸心 */
+        }
+
+        /* --- 關鍵動畫：滑入效果 (Slide & Fade) --- */
+        @keyframes pageSlideIn {
+            0% {
+                opacity: 0;
+                transform: translateX(30px) scale(0.98);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+        }
+
+        .page-animating {
+            animation: pageSlideIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        /* --- AI 側邊欄動畫 --- */
+        #ai-sidebar {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateX(100%);
+            box-shadow: -10px 0 25px -5px rgba(0, 0, 0, 0.5);
+        }
+        #ai-sidebar.open { transform: translateX(0); }
+
+        /* 對話框樣式 */
+        .msg-ai { background-color: #374151; border-radius: 12px 12px 12px 2px; }
+        .msg-user { background-color: var(--primary-color); color: white; border-radius: 12px 12px 2px 12px; }
+        
+        /* 載入轉圈圈 */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            border-left-color: var(--primary-color);
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="flex flex-col h-screen bg-gray-800 text-gray-100">
+
+    <!-- API Key 設定視窗 -->
+    <div id="apiModal" class="fixed inset-0 bg-black/80 z-[200] hidden items-center justify-center backdrop-blur-sm">
+        <div class="bg-gray-800 p-6 rounded-xl w-full max-w-md border border-gray-700 shadow-2xl">
+            <h3 class="text-xl font-bold text-white mb-2">🔑 設定 Gemini API Key</h3>
+            <p class="text-gray-400 text-sm mb-4">
+                為了使用 AI 功能，請輸入您的 Google Gemini API Key。<br>
+                <span class="text-yellow-500 text-xs">注意：Key 僅儲存在您的瀏覽器，不會上傳伺服器。</span>
+            </p>
+            <input type="password" id="apiKeyInput" class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="貼上 API Key...">
+            <div class="flex justify-end gap-3 mt-6">
+                <button class="px-4 py-2 text-gray-400 hover:text-white" onclick="closeApiModal()">取消</button>
+                <button class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg" onclick="saveApiKey()">儲存設定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 頂部導覽列 -->
+    <header class="bg-gray-900 border-b border-gray-700 px-4 py-3 flex items-center justify-between shadow-lg z-50">
+        <div class="flex items-center gap-3">
+            <!-- 回首頁按鈕 (預留給未來串接) -->
+            <a href="index.html" class="bg-gray-700 hover:bg-gray-600 w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold transition-colors" title="回首頁">
+                🏠
+            </a>
+            <span class="font-bold text-lg tracking-wide hidden sm:block">AI 智慧閱讀器</span>
+            
+            <!-- 模式切換 -->
+            <div class="flex items-center bg-gray-800 rounded-lg p-1 border border-gray-700 ml-2">
+                <button id="btn-mode-local" onclick="switchMode('local')" class="px-3 py-1 text-sm rounded-md bg-gray-700 text-white shadow-sm transition-all">📂 本地</button>
+                <button id="btn-mode-demo" onclick="switchMode('demo')" class="px-3 py-1 text-sm rounded-md text-gray-400 hover:text-white transition-all">🌐 範例</button>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-2">
+            <input type="file" id="fileInput" accept="application/pdf" class="hidden">
+            
+            <!-- 翻頁器 -->
+            <div class="flex items-center bg-gray-800 rounded-lg border border-gray-700">
+                <button class="px-3 py-1 hover:bg-gray-700 text-gray-300 disabled:opacity-30" id="prevBtn" disabled>❮</button>
+                <span class="px-2 text-sm font-mono text-gray-400 min-w-[60px] text-center">
+                    <span id="pageNum" class="text-white">0</span> / <span id="pageCount">0</span>
+                </span>
+                <button class="px-3 py-1 hover:bg-gray-700 text-gray-300 disabled:opacity-30" id="nextBtn" disabled>❯</button>
+            </div>
+
+            <!-- AI 按鈕 -->
+            <button class="flex items-center gap-1 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg hover:bg-amber-500/20 transition-all text-sm" onclick="summarizePage()">
+                <span>✨</span><span class="hidden sm:inline">摘要</span>
+            </button>
+            
+            <button class="p-2 text-gray-400 hover:text-white transition-colors" onclick="toggleSidebar()">
+                💬
+            </button>
+            
+            <button class="p-2 text-gray-400 hover:text-white transition-colors" onclick="openApiModal()">
+                ⚙️
+            </button>
+        </div>
+    </header>
+
+    <!-- 主要內容區 -->
+    <div class="flex flex-1 overflow-hidden relative">
+        <!-- 閱讀畫布 -->
+        <div id="canvas-container" class="flex-1 overflow-auto flex justify-center p-4 sm:p-8 bg-gray-800">
+            
+            <!-- 尚未載入時的畫面 -->
+            <div id="emptyState" class="self-center text-center p-8">
+                <div class="mb-6 inline-block p-4 bg-gray-700 rounded-full animate-bounce">
+                    📂
+                </div>
+                <h2 class="text-2xl font-bold text-white mb-2">請選擇檔案</h2>
+                <p class="text-gray-400 mb-8 max-w-md mx-auto text-sm">
+                    支援 PDF 格式。檔案僅在瀏覽器運算，<br>絕對隱私安全，請放心使用。
+                </p>
+                <button onclick="document.getElementById('fileInput').click()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-lg transition-all">
+                    開啟 PDF 檔案
+                </button>
+            </div>
+
+            <!-- 載入中 -->
+            <div id="loadingState" class="hidden self-center text-center">
+                <div class="spinner mx-auto mb-4"></div>
+                <p class="text-gray-400">正在解析文件...</p>
+            </div>
+
+            <canvas id="the-canvas" class="hidden max-w-full h-auto"></canvas>
+        </div>
+
+        <!-- AI 側邊欄 -->
+        <div id="ai-sidebar" class="w-80 sm:w-96 bg-gray-900 border-l border-gray-700 flex flex-col absolute top-0 right-0 bottom-0 h-full z-40">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-800/50 backdrop-blur">
+                <span class="font-bold text-gray-200">✨ Gemini 助手</span>
+                <button class="text-gray-400 hover:text-white" onclick="toggleSidebar()">✕</button>
+            </div>
+            
+            <div id="chatHistory" class="flex-1 overflow-y-auto p-4 space-y-4">
+                <div class="msg-system text-center text-gray-500 text-xs py-4">
+                    👋 載入 PDF 後，您可以點擊「摘要」或直接提問。
+                </div>
+            </div>
+
+            <!-- 思考中提示 -->
+            <div id="typingIndicator" class="hidden px-4 py-2 text-gray-400 text-xs italic flex items-center gap-1">
+                🤖 Gemini 正在思考...
+            </div>
+
+            <div class="p-4 border-t border-gray-700 bg-gray-800">
+                <div class="flex gap-2">
+                    <input type="text" id="aiInput" placeholder="問這個頁面的問題..." class="flex-1 bg-gray-700 border border-gray-600 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" onkeypress="handleInputKey(event)">
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg" onclick="sendUserMessage()">➤</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- PDF.js 設定 ---
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    let pdfDoc = null;
+    let pageNum = 1;
+    let pageRendering = false;
+    let pageNumPending = null;
+    let scale = 1.5; // 預設縮放
+    
+    const canvas = document.getElementById('the-canvas');
+    const ctx = canvas.getContext('2d');
+    const fileInput = document.getElementById('fileInput');
+    
+    // --- 檔案載入邏輯 ---
+    
+    // 模式切換
+    function switchMode(mode) {
+        const btnLocal = document.getElementById('btn-mode-local');
+        const btnDemo = document.getElementById('btn-mode-demo');
+        
+        if (mode === 'local') {
+            btnLocal.className = "px-3 py-1 text-sm rounded-md bg-gray-700 text-white shadow-sm transition-all";
+            btnDemo.className = "px-3 py-1 text-sm rounded-md text-gray-400 hover:text-white transition-all";
+            resetViewer();
+            fileInput.click();
+        } else {
+            btnDemo.className = "px-3 py-1 text-sm rounded-md bg-gray-700 text-white shadow-sm transition-all";
+            btnLocal.className = "px-3 py-1 text-sm rounded-md text-gray-400 hover:text-white transition-all";
+            loadPdf('sample.pdf', false, '線上說明書'); 
+        }
+    }
+
+    // 監聽檔案上傳
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file && file.type === 'application/pdf') {
+            const fileUrl = URL.createObjectURL(file);
+            loadPdf(fileUrl, true, file.name);
+        }
+    });
+
+    function resetViewer() {
+        pdfDoc = null;
+        canvas.classList.add('hidden');
+        document.getElementById('emptyState').classList.remove('hidden');
+        document.getElementById('pageCount').textContent = '0';
+        document.getElementById('pageNum').textContent = '0';
+    }
+
+    function loadPdf(url, isLocal, fileName) {
+        document.getElementById('emptyState').classList.add('hidden');
+        document.getElementById('loadingState').classList.remove('hidden');
+        canvas.classList.add('hidden');
+
+        pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
+            pdfDoc = pdfDoc_;
+            document.getElementById('pageCount').textContent = pdfDoc.numPages;
+            
+            document.getElementById('loadingState').classList.add('hidden');
+            canvas.classList.remove('hidden');
+            
+            pageNum = 1;
+            renderPage(pageNum);
+            
+            addMessage('system', `📚 已載入：${fileName}`);
+
+        }).catch(function(error) {
+            console.error(error);
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('emptyState').classList.remove('hidden');
+            if(!isLocal) alert("找不到 sample.pdf，請先使用「本地檔案」功能。");
+        });
+    }
+
+    // --- 頁面渲染 (含動畫) ---
+    function renderPage(num) {
+        pageRendering = true;
+        
+        // 觸發 CSS 動畫 (Reflow)
+        canvas.classList.remove('page-animating');
+        void canvas.offsetWidth; 
+        canvas.classList.add('page-animating');
+
+        pdfDoc.getPage(num).then(function(page) {
+            // 根據螢幕寬度調整縮放
+            const containerWidth = document.getElementById('canvas-container').clientWidth;
+            const viewport_temp = page.getViewport({scale: 1});
+            // 讓頁面寬度適應容器，但保留一些邊距 (padding)
+            const desiredScale = (containerWidth - 60) / viewport_temp.width;
+            scale = Math.min(1.5, desiredScale); // 最大放大到 1.5 倍
+
+            const viewport = page.getViewport({scale: scale});
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            const renderContext = { canvasContext: ctx, viewport: viewport };
+            const renderTask = page.render(renderContext);
+
+            renderTask.promise.then(function() {
+                pageRendering = false;
+                if (pageNumPending !== null) {
+                    renderPage(pageNumPending);
+                    pageNumPending = null;
+                }
+            });
+        });
+
+        document.getElementById('pageNum').textContent = num;
+        document.getElementById('prevBtn').disabled = num <= 1;
+        document.getElementById('nextBtn').disabled = num >= pdfDoc.numPages;
+    }
+
+    function queueRenderPage(num) {
+        if (pageRendering) pageNumPending = num;
+        else renderPage(num);
+    }
+
+    document.getElementById('prevBtn').addEventListener('click', () => { if(pageNum > 1) { pageNum--; queueRenderPage(pageNum); } });
+    document.getElementById('nextBtn').addEventListener('click', () => { if(pageNum < pdfDoc.numPages) { pageNum++; queueRenderPage(pageNum); } });
+
+    // --- AI 功能 ---
+    const envApiKey = ""; 
+    function getApiKey() { return localStorage.getItem('gemini_api_key') || envApiKey; }
+    
+    async function getCurrentPageText() {
+        if (!pdfDoc) return null;
+        try {
+            const page = await pdfDoc.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            return textContent.items.map(item => item.str).join(' ');
+        } catch (error) { return null; }
+    }
+
+    async function callGeminiAPI(prompt) {
+        const apiKey = getApiKey();
+        if (!apiKey) {
+            openApiModal();
+            return "請先設定 API Key 🔒";
+        }
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        try {
+            const response = await fetch(url, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+            const data = await response.json();
+            if (data.error) throw new Error(data.error.message);
+            return data.candidates[0].content.parts[0].text;
+        } catch (error) { return `錯誤: ${error.message}`; }
+    }
+
+    async function summarizePage() {
+        if(!pdfDoc) { alert('請先開啟一份 PDF'); return; }
+        openSidebar();
+        showTyping(true);
+        const pageText = await getCurrentPageText();
+        const prompt = `請摘要此頁內容 (繁體中文)：\n${pageText || "(無文字)"}`;
+        const result = await callGeminiAPI(prompt);
+        showTyping(false);
+        addMessage('ai', result);
+    }
+
+    async function sendUserMessage() {
+        const input = document.getElementById('aiInput');
+        const question = input.value.trim();
+        if (!question) return;
+        if(!pdfDoc) { alert('請先開啟 PDF'); return; }
+        
+        addMessage('user', question);
+        input.value = '';
+        showTyping(true);
+        const pageText = await getCurrentPageText();
+        const prompt = `參考第${pageNum}頁內容：\n${pageText}\n\n回答使用者：${question}`;
+        const result = await callGeminiAPI(prompt);
+        showTyping(false);
+        addMessage('ai', result);
+    }
+
+    // UI 控制
+    const sidebar = document.getElementById('ai-sidebar');
+    const chatHistory = document.getElementById('chatHistory');
+    
+    function toggleSidebar() { sidebar.classList.toggle('open'); }
+    function openSidebar() { sidebar.classList.add('open'); }
+    
+    function addMessage(role, text) {
+        const div = document.createElement('div');
+        div.className = `p-3 text-sm leading-relaxed max-w-[90%] mb-2 ${role === 'ai' ? 'msg-ai text-gray-200 self-start' : role === 'user' ? 'msg-user self-end ml-auto' : 'text-center text-gray-500 text-xs italic w-full'}`;
+        
+        if (role === 'ai') div.innerHTML = marked.parse(text);
+        else div.textContent = text;
+        
+        chatHistory.appendChild(div);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+    
+    function showTyping(show) { document.getElementById('typingIndicator').style.display = show ? 'flex' : 'none'; }
+    function handleInputKey(e) { if (e.key === 'Enter') sendUserMessage(); }
+
+    function openApiModal() { document.getElementById('apiModal').style.display = 'flex'; }
+    function closeApiModal() { document.getElementById('apiModal').style.display = 'none'; }
+    function saveApiKey() {
+        const key = document.getElementById('apiKeyInput').value.trim();
+        if (key) { localStorage.setItem('gemini_api_key', key); alert('已儲存！'); closeApiModal(); }
+    }
+</script>
+</body>
+</html>
