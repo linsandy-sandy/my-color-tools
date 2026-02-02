@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataColor Pro - 全方位配色工作站</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 字體 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .color-card:hover .copy-btn { opacity: 1; }
+        .preview-active { transform: scale(1.02); border-color: #3b82f6; box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.1), 0 4px 6px -2px rgba(59, 130, 246, 0.05); }
+        
+        /* 甜甜圈圖動畫 */
+        .chart-donut {
+            width: 160px; height: 160px;
+            border-radius: 50%;
+            transition: background 0.5s ease;
+            position: relative;
+        }
+        .chart-donut::after {
+            content: ''; position: absolute; inset: 30px;
+            background: inherit; /* 會被 JS 覆蓋為容器背景色 */
+            border-radius: 50%;
+            z-index: 1;
+        }
+        
+        /* 篩選按鈕激活狀態 */
+        .filter-btn.active { background-color: #2563eb; color: white; border-color: #2563eb; }
+        
+        /* 載入動畫 */
+        #loading-overlay {
+            position: fixed; inset: 0; background: white; z-index: 100;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.5s ease;
+        }
+        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+
+    <!-- 錯誤偵測 -->
+    <noscript>
+        <div class="bg-red-100 text-red-700 p-4 text-center font-bold">
+            警告：此工具需要開啟 JavaScript 才能運作。
+        </div>
+    </noscript>
+
+    <!-- 載入畫面 -->
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <p class="mt-4 text-slate-500 font-medium">正在載入多色譜資料庫...</p>
+    </div>
+
+    <!-- 導覽列 -->
+    <nav class="bg-white shadow-sm border-b sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow-blue-200 shadow-lg">D</div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight leading-none">DataColor Pro</h1>
+                    <span class="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">v6.5 Multi-Color</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="index.html" class="text-sm text-slate-500 hover:text-blue-600 hover:underline hidden sm:block transition-colors">← 回首頁</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-6xl mx-auto px-4 py-8 flex-grow">
+        
+        <!-- === 升級區塊 1: 高階預覽控制台 === -->
+        <section class="mb-10 bg-white p-1 rounded-2xl shadow-sm border overflow-hidden">
+            <!-- 控制列 -->
+            <div class="flex flex-wrap items-center justify-between px-6 py-4 border-b bg-slate-50/50 gap-4">
+                <h2 class="text-lg font-bold flex items-center gap-2 text-slate-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"/><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"/></svg>
+                    智慧模擬預覽 (已擴充至 8 項指標)
+                </h2>
+                
+                <div class="flex items-center gap-2 bg-slate-200/50 p-1 rounded-lg">
+                    <!-- 圖表切換 -->
+                    <button onclick="setChartType('bar')" id="btn-bar" class="px-3 py-1.5 text-xs font-semibold rounded-md bg-white shadow-sm text-slate-700 transition-all">柱狀圖</button>
+                    <button onclick="setChartType('donut')" id="btn-donut" class="px-3 py-1.5 text-xs font-semibold rounded-md text-slate-500 hover:text-slate-700 hover:bg-white/50 transition-all">甜甜圈圖</button>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-500 font-medium">背景模擬：</span>
+                    <button onclick="toggleTheme('light')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white border shadow-sm text-amber-500 hover:scale-110 transition-transform" title="明亮模式">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    </button>
+                    <button onclick="toggleTheme('dark')" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800 border border-slate-700 shadow-sm text-blue-300 hover:scale-110 transition-transform" title="深色模式">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 預覽容器 (會變色) -->
+            <div id="preview-container" class="p-8 transition-colors duration-300 bg-white">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                    
+                    <!-- 1. 表格區 -->
+                    <div class="overflow-hidden rounded-xl border border-slate-200/60 shadow-sm bg-white/50 backdrop-blur-sm" id="table-wrapper">
+                        <table class="w-full text-sm text-left" id="preview-table">
+                            <thead>
+                                <tr class="border-b border-slate-200/60">
+                                    <th class="px-5 py-3 font-medium opacity-60">項目</th>
+                                    <th class="px-5 py-3 font-medium opacity-60 text-right">數值</th>
+                                    <th class="px-5 py-3 font-medium opacity-60 text-right">佔比</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body">
+                                <!-- JS 動態生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 2. 圖表區 (動態切換) -->
+                    <div class="flex items-center justify-center h-48 relative" id="chart-wrapper">
+                        
+                        <!-- 柱狀圖 (預設顯示) -->
+                        <div id="chart-bar" class="w-full h-full flex items-end justify-around px-4 border-b border-l border-slate-300/30">
+                            <!-- JS 生成 -->
+                        </div>
+
+                        <!-- 甜甜圈圖 (預設隱藏) -->
+                        <div id="chart-donut" class="chart-donut hidden shadow-xl flex items-center justify-center">
+                            <div class="absolute bg-white z-10 w-20 h-20 rounded-full flex items-center justify-center text-xs font-bold shadow-inner transition-colors duration-300" id="donut-center">
+                                Total<br>100%
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- === 升級區塊 2: 智慧篩選器 === -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold flex items-center gap-2">
+                    色盤資料庫 <span class="bg-slate-800 text-white text-xs px-2 py-0.5 rounded-full" id="count-badge">0</span>
+                </h2>
+            </div>
+            
+            <div class="flex flex-wrap gap-2 pb-4" id="filter-container">
+                <button onclick="filterPalettes('All')" class="filter-btn active px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 bg-white text-slate-600 hover:border-blue-400 transition-all">全部顯示</button>
+                <button onclick="filterPalettes('Multi-Color')" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 bg-white text-slate-600 hover:border-blue-400 transition-all text-purple-600 hover:text-purple-700 hover:border-purple-300 font-bold">🌈 多色組合 (8+)</button>
+                <button onclick="filterPalettes('Coolors Best')" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 bg-white text-slate-600 hover:border-blue-400 transition-all text-indigo-600 hover:text-indigo-700 hover:border-indigo-300">🚀 Coolors 熱門</button>
+                <button onclick="filterPalettes('LOL Colors')" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 bg-white text-slate-600 hover:border-blue-400 transition-all text-pink-600 hover:text-pink-700 hover:border-pink-300">🎨 LOL 精選</button>
+                <button onclick="filterPalettes('Business')" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 bg-white text-slate-600 hover:border-blue-400 transition-all">商務專業</button>
+                <button onclick="filterPalettes('Nature')" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 bg-white text-slate-600 hover:border-blue-400 transition-all">自然生態</button>
+                <button onclick="filterPalettes('Sequential')" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 bg-white text-slate-600 hover:border-blue-400 transition-all">📊 漸層熱圖</button>
+                <button onclick="filterPalettes('Diverging')" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 bg-white text-slate-600 hover:border-blue-400 transition-all">↔️ 雙極發散</button>
+                <button onclick="filterPalettes('Accessibility')" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 bg-white text-slate-600 hover:border-blue-400 transition-all">👁️ 無障礙</button>
+                <button onclick="filterPalettes('Dark Mode')" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 bg-white text-slate-600 hover:border-blue-400 transition-all">🌙 深色模式</button>
+                <button onclick="filterPalettes('Retro')" class="filter-btn px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 bg-white text-slate-600 hover:border-blue-400 transition-all">📻 復古風</button>
+            </div>
+        </div>
+        
+        <!-- 色盤網格 -->
+        <div id="palette-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 pb-20 transition-all">
+            <!-- 由 JavaScript 動態生成 -->
+        </div>
+    </main>
+    
+    <footer class="text-center py-8 text-xs text-slate-400 border-t bg-slate-50 mt-auto">
+        <p>DataColor Pro v6.5 Multi-Color Edition - Designed for Data Storytelling</p>
+    </footer>
+
+    <!-- Toast 通知 -->
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full shadow-2xl opacity-0 transition-all duration-300 pointer-events-none z-50 flex items-center gap-2 transform translate-y-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+        <span id="toast-msg">已複製顏色碼！</span>
+    </div>
+
+    <script>
+        // --- 全域變數 ---
+        const loader = document.getElementById('loading-overlay');
+        let currentColors = []; 
+        let currentChart = 'bar'; 
+        let currentTheme = 'light'; 
+        
+        // 模擬數據 (擴充至 8 筆以展示多色效果)
+        const mockData = [
+            { label: 'Category A', val: 450, pct: '28%' },
+            { label: 'Category B', val: 320, pct: '20%' },
+            { label: 'Category C', val: 210, pct: '13%' },
+            { label: 'Category D', val: 180, pct: '11%' },
+            { label: 'Category E', val: 150, pct: '9%' },
+            { label: 'Category F', val: 120, pct: '8%' },
+            { label: 'Category G', val: 90, pct: '6%' },
+            { label: 'Category H', val: 80, pct: '5%' }
+        ];
+
+        // --- 完整色盤資料庫 ---
+        const palettes = [
+            // --- 🌈 多色組合 (Multi-Color 8-10 colors) ---
+            { name: "Full Rainbow", tag: "Multi-Color", colors: ["#ffadad", "#ffd6a5", "#fdffb6", "#caffbf", "#9bf6ff", "#a0c4ff", "#bdb2ff", "#ffc6ff", "#fffffc"] },
+            { name: "Spectral 10", tag: "Multi-Color", colors: ["#9e0142", "#d53e4f", "#f46d43", "#fdae61", "#fee08b", "#e6f598", "#abdda4", "#66c2a5", "#3288bd", "#5e4fa2"] },
+            { name: "Tableau 10 Classic", tag: "Multi-Color", colors: ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"] },
+            { name: "Vivid Spectrum", tag: "Multi-Color", colors: ["#001219", "#005f73", "#0a9396", "#94d2bd", "#e9d8a6", "#ee9b00", "#ca6702", "#bb3e03", "#ae2012", "#9b2226"] },
+            { name: "Coolors: Gradient 10", tag: "Multi-Color", colors: ["#03071e", "#370617", "#6a040f", "#9d0208", "#d00000", "#dc2f02", "#e85d04", "#f48c06", "#faa307", "#ffba08"] },
+            { name: "Ocean Depth 10", tag: "Multi-Color", colors: ["#f7fcfd", "#e0ecf4", "#bfd3e6", "#9ebcda", "#8c96c6", "#8c6bb1", "#88419d", "#810f7c", "#4d004b", "#000000"] },
+            { name: "Forest Life 8", tag: "Multi-Color", colors: ["#d8f3dc", "#b7e4c7", "#95d5b2", "#74c69d", "#52b788", "#40916c", "#2d6a4f", "#1b4332", "#081c15"] },
+            { name: "Pastel Party 8", tag: "Multi-Color", colors: ["#ff99c8", "#fcf6bd", "#d0f4de", "#a9def9", "#e4c1f9", "#e2e2f0", "#ffadad", "#ffd6a5"] },
+            { name: "Data Viz Safe", tag: "Multi-Color", colors: ["#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", "#44AA99", "#999933", "#882255", "#661100"] },
+            { name: "Modern Dark UI", tag: "Multi-Color", colors: ["#16161a", "#242629", "#7f5af0", "#2cb67d", "#94a1b2", "#fffffe", "#ff8906", "#f25f4c", "#e53170", "#010101"] },
+
+            // --- 🚀 Coolors Trending ---
+            { name: "Coolors: Ocean Blue", tag: "Coolors Best", colors: ["#0077b6", "#0096c7", "#48cae4", "#90e0ef", "#caf0f8"] },
+            { name: "Coolors: Forest Hike", tag: "Coolors Best", colors: ["#d8f3dc", "#b7e4c7", "#95d5b2", "#74c69d", "#52b788"] },
+            { name: "Coolors: Coffee Beans", tag: "Coolors Best", colors: ["#6f4e37", "#a67b5b", "#ecb176", "#fed8b1", "#ffffdd"] },
+            { name: "Coolors: Berry Gradient", tag: "Coolors Best", colors: ["#cdb4db", "#ffc8dd", "#ffafcc", "#bde0fe", "#a2d2ff"] },
+            { name: "Coolors: Sunset Gradient", tag: "Coolors Best", colors: ["#ff99c8", "#fcf6bd", "#d0f4de", "#a9def9", "#e4c1f9"] },
+            { name: "Coolors: Seafoam", tag: "Coolors Best", colors: ["#06d6a0", "#118ab2", "#073b4c", "#ffd166", "#ef476f"] },
+            { name: "Coolors: Warm & Cold", tag: "Coolors Best", colors: ["#264653", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51"] },
+            { name: "Coolors: Neon Night", tag: "Coolors Best", colors: ["#000000", "#14213d", "#fca311", "#e5e5e5", "#ffffff"] },
+            { name: "Coolors: Pastel Rainbow", tag: "Coolors Best", colors: ["#ffadad", "#ffd6a5", "#fdffb6", "#caffbf", "#9bf6ff"] },
+            { name: "Coolors: Earthy Vibes", tag: "Coolors Best", colors: ["#606c38", "#283618", "#fefae0", "#dda15e", "#bc6c25"] },
+            { name: "Coolors: Space Grey", tag: "Coolors Best", colors: ["#343a40", "#495057", "#6c757d", "#adb5bd", "#ced4da"] },
+            { name: "Coolors: Vintage Film", tag: "Coolors Best", colors: ["#cb997e", "#ddbea9", "#ffe8d6", "#b7b7a4", "#a5a58d"] },
+            { name: "Coolors: Deep Purple", tag: "Coolors Best", colors: ["#10002b", "#240046", "#3c096c", "#5a189a", "#7b2cbf"] },
+            { name: "Coolors: Cherry Red", tag: "Coolors Best", colors: ["#590d22", "#800f2f", "#a4133c", "#ff4d6d", "#ffb3c1"] },
+            { name: "Coolors: Bright Summer", tag: "Coolors Best", colors: ["#f94144", "#f3722c", "#f8961e", "#f9844a", "#f9c74f"] },
+            { name: "Coolors: Cold Blue", tag: "Coolors Best", colors: ["#03045e", "#0077b6", "#00b4d8", "#90e0ef", "#caf0f8"] },
+            { name: "Coolors: Minty Fresh", tag: "Coolors Best", colors: ["#d9ed92", "#b5e48c", "#99d98c", "#76c893", "#52b69a"] },
+            { name: "Coolors: Lavender", tag: "Coolors Best", colors: ["#e2e2f0", "#c6c6eb", "#7e7eb2", "#55557f", "#2b2b40"] },
+            { name: "Coolors: Dark Gold", tag: "Coolors Best", colors: ["#ff0000", "#ff8700", "#ffd300", "#deff0a", "#a1ff0a"] }, 
+            { name: "Coolors: Clean UI", tag: "Coolors Best", colors: ["#f8f9fa", "#e9ecef", "#dee2e6", "#ced4da", "#adb5bd"] },
+            { name: "Coolors: Rose Gold", tag: "Coolors Best", colors: ["#d4a373", "#faedcd", "#fefae0", "#e9edc9", "#ccd5ae"] },
+            { name: "Coolors: Slate Blue", tag: "Coolors Best", colors: ["#2d3142", "#4f5d75", "#bfc0c0", "#ffffff", "#ef8354"] },
+            { name: "Coolors: Vivid Purple", tag: "Coolors Best", colors: ["#240046", "#3c096c", "#5a189a", "#7b2cbf", "#9d4edd"] },
+            { name: "Coolors: Coral Reef", tag: "Coolors Best", colors: ["#f08080", "#f4978e", "#f8ad9d", "#fbc4ab", "#ffdab9"] },
+            { name: "Coolors: Midnight", tag: "Coolors Best", colors: ["#0b132b", "#1c2541", "#3a506b", "#5bc0be", "#6fffe9"] },
+
+             // 1. 商務與科技 (Business)
+            { name: "Tableau 10", tag: "Business", colors: ["#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f"] },
+            { name: "Google Charts", tag: "Business", colors: ["#3366cc", "#dc3912", "#ff9900", "#109618", "#990099"] },
+            { name: "PowerBI Default", tag: "Business", colors: ["#118DFF", "#12239E", "#E66C37", "#6B007B", "#E044A7"] },
+            { name: "Tech Corporate", tag: "Business", colors: ["#2563eb", "#4f46e5", "#7c3aed", "#a855f7", "#d946ef"] },
+            { name: "Professional Blue", tag: "Business", colors: ["#0f172a", "#1e293b", "#334155", "#475569", "#64748b"] },
+            { name: "Deep Analytics", tag: "Business", colors: ["#1e3a8a", "#1d4ed8", "#2563eb", "#3b82f6", "#60a5fa"] },
+            { name: "Finance Trust", tag: "Business", colors: ["#004e64", "#00a5cf", "#9fffcb", "#25a18e", "#7ae582"] },
+            { name: "SaaS Dashboard", tag: "Business", colors: ["#3b82f6", "#6366f1", "#8b5cf6", "#a855f7", "#ec4899"] },
+            { name: "Consulting Grey", tag: "Business", colors: ["#343a40", "#495057", "#6c757d", "#adb5bd", "#ced4da"] },
+            { name: "Executive Gold", tag: "Business", colors: ["#14213d", "#fca311", "#e5e5e5", "#ffffff", "#000000"] },
+            { name: "Modern Agency", tag: "Business", colors: ["#6c5ce7", "#a29bfe", "#ffeaa7", "#fab1a0", "#ff7675"] },
+            
+            // --- 🎨 LOL Colors 精選 (New) ---
+            { name: "LOL #7210 (Vibrant)", tag: "LOL Colors", colors: ["#ff7473", "#ffc952", "#47b8e0", "#34314c"] },
+            { name: "LOL #4714 (Teal/Purple)", tag: "LOL Colors", colors: ["#9DC8C8", "#58C9B9", "#519D9E", "#D1B6E1"] },
+            { name: "LOL #3598 (Blue/Orange)", tag: "LOL Colors", colors: ["#e1eef6", "#ff5f2e", "#fcbe32", "#004e66"] },
+            { name: "LOL #2877 (Primary)", tag: "LOL Colors", colors: ["#30A9DE", "#EFDC05", "#E53A40", "#090707"] },
+            { name: "LOL #2220 (Fresh Mint)", tag: "LOL Colors", colors: ["#cff09e", "#a8dba8", "#79bd9a", "#3b8686"] },
+            { name: "LOL #2209 (Warm)", tag: "LOL Colors", colors: ["#FFEEE4", "#F17F42", "#CE6D39", "#000000"] },
+            { name: "LOL #2110 (Pastel Pop)", tag: "LOL Colors", colors: ["#a5dff9", "#ef5285", "#60c5ba", "#feee7d"] },
+            { name: "LOL #2046 (Soft Purple)", tag: "LOL Colors", colors: ["#A593E0", "#E0E3DA", "#FFFFF3", "#566270"] },
+            { name: "LOL #1658 (Red/Teal)", tag: "LOL Colors", colors: ["#E71D36", "#2EC4B6", "#EFFFE9", "#011627"] },
+            { name: "LOL #1477 (Sunset)", tag: "LOL Colors", colors: ["#F6B352", "#F68657", "#383A3F", `#1F2124`] },
+            { name: "LOL #1373 (Pink/Blue)", tag: "LOL Colors", colors: ["#e85a71", "#d8e9ef", "#4ea1d3", "#454552"] },
+            { name: "LOL #1369 (Forest)", tag: "LOL Colors", colors: ["#D7FFF1", "#8CD790", "#77AF9C", "#285943"] },
+            { name: "LOL #1294 (Retro)", tag: "LOL Colors", colors: ["#FBFFB9", "#FDD692", "#EC7357", "#754F44"] },
+            { name: "LOL #1190 (Muted)", tag: "LOL Colors", colors: ["#F0E5DE", "#ABD0CE", "#7C7877", "#D9D4CF"] },
+            { name: "LOL #1070 (Deep Purple)", tag: "LOL Colors", colors: ["#D499B9", "#9055A2", "#2E294E", "#011638"] },
+            { name: "LOL #909 (Neon/Dark)", tag: "LOL Colors", colors: ["#45d9fd", "#f4f4f4", "#ee2560", "#08182b"] },
+            { name: "LOL #895 (Strong)", tag: "LOL Colors", colors: ["#490a3d", "#bd1550", "#e97f02", "#f8ca00"] },
+            { name: "LOL #889 (Cyber)", tag: "LOL Colors", colors: ["#f9c00c", "#00b9f1", "#7200da", "#f9320c"] },
+            { name: "LOL #703 (Soft Red)", tag: "LOL Colors", colors: ["#d6ecfa", "#f15c5c", "#b84a39", "#6f3826"] },
+            { name: "LOL #392 (Pink/Green)", tag: "LOL Colors", colors: ["#fec9c9", "#ee6e9f", "#6d9d88", "#1a1a1a"] },
+
+            // 2. 漸層與熱圖 (Sequential)
+            { name: "Blues (Heatmap)", tag: "Sequential", colors: ["#eff3ff", "#bdd7e7", "#6baed6", "#3182bd", "#08519c"] },
+            { name: "Greens (Growth)", tag: "Sequential", colors: ["#edf8e9", "#bae4b3", "#74c476", "#31a354", "#006d2c"] },
+            { name: "Oranges (Intensity)", tag: "Sequential", colors: ["#feedde", "#fdbe85", "#fd8d3c", "#e6550d", "#a63603"] },
+            { name: "Purples (Luxury)", tag: "Sequential", colors: ["#f2f0f7", "#cbc9e2", "#9e9ac8", "#756bb1", "#54278f"] },
+            { name: "Grays (Neutral)", tag: "Sequential", colors: ["#f7f7f7", "#cccccc", "#969696", "#636363", "#252525"] },
+            { name: "Reds (Alert)", tag: "Sequential", colors: ["#fee2e2", "#fca5a5", "#f87171", "#ef4444", "#b91c1c"] },
+            { name: "Teals (Calm)", tag: "Sequential", colors: ["#ccfbf1", "#99f6e4", "#5eead4", "#2dd4bf", "#115e59"] },
+
+            // 3. 發散與對比 (Diverging)
+            { name: "Red-Blue (Profit)", tag: "Diverging", colors: ["#b2182b", "#ef8a62", "#f7f7f7", "#67a9cf", "#2166ac"] },
+            { name: "Purple-Green", tag: "Diverging", colors: ["#762a83", "#af8dc3", "#f7f7f7", "#7fbf7b", "#1b7837"] },
+            { name: "Spectral (Map)", tag: "Diverging", colors: ["#d7191c", "#fdae61", "#ffffbf", "#abdda4", "#2b83ba"] },
+            { name: "Br-Bg (Survey)", tag: "Diverging", colors: ["#a6611a", "#dfc27d", "#f5f5f5", "#80cdc1", "#018571"] },
+            { name: "Pink-Lime", tag: "Diverging", colors: ["#e01e84", "#f48fb1", "#f7f7f7", "#b2df8a", "#33a02c"] },
+            { name: "Orange-Purple", tag: "Diverging", colors: ["#e66101", "#fdb863", "#f7f7f7", "#b2abd2", "#5e3c99"] },
+
+            // 4. 自然生態 (Nature)
+            { name: "Forest Growth", tag: "Nature", colors: ["#064e3b", "#065f46", "#047857", "#10b981", "#34d399"] },
+            { name: "Earth & Clay", tag: "Nature", colors: ["#7f5539", "#9c6644", "#b08968", "#ddb892", "#e6ccb2"] },
+            { name: "Ocean Depth", tag: "Nature", colors: ["#03045e", "#0077b6", "#00b4d8", "#90e0ef", "#caf0f8"] },
+            { name: "Tropical Vivid", tag: "Nature", colors: ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#ec4899"] },
+            { name: "Sunset Horizon", tag: "Nature", colors: ["#264653", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51"] },
+            { name: "Coffee House", tag: "Nature", colors: ["#6f4e37", "#a67b5b", "#ecb176", "#fed8b1", "#ffffdd"] },
+            { name: "Cherry Blossom", tag: "Nature", colors: ["#590d22", "#800f2f", "#a4133c", "#ff4d6d", "#ffb3c1"] },
+            { name: "Arctic Ice", tag: "Nature", colors: ["#0077b6", "#0096c7", "#48cae4", "#90e0ef", "#caf0f8"] },
+            { name: "Desert Sand", tag: "Nature", colors: ["#bb3e03", "#ca6702", "#ee9b00", "#e9d8a6", "#94d2bd"] },
+
+            // 5. 無障礙 (Accessibility)
+            { name: "Okabe-Ito (Safe)", tag: "Accessibility", colors: ["#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2"] },
+            { name: "High Contrast", tag: "Accessibility", colors: ["#000000", "#FFFFFF", "#FFD700", "#0057E7", "#D62D20"] },
+            { name: "Colorblind Vivid", tag: "Accessibility", colors: ["#EE7733", "#0077BB", "#33BBEE", "#EE3377", "#CC3311"] },
+            
+            // 6. 深色模式與現代 (Dark Mode)
+            { name: "Cyberpunk Neon", tag: "Dark Mode", colors: ["#f72585", "#7209b7", "#3a0ca3", "#4361ee", "#4cc9f0"] },
+            { name: "Fintech Teal", tag: "Dark Mode", colors: ["#2d3436", "#00cec9", "#0984e3", "#6c5ce7", "#dfe6e9"] },
+            { name: "Data Dark", tag: "Dark Mode", colors: ["#1e293b", "#334155", "#475569", "#94a3b8", "#cbd5e1"] },
+            { name: "Neon Tokyo", tag: "Dark Mode", colors: ["#2c2c54", "#474787", "#aaabb8", "#ececec", "#ff5252"] },
+            
+            // 7. 復古與懷舊 (Retro)
+            { name: "Retro Synth", tag: "Retro", colors: ["#ff006e", "#8338ec", "#3a86ff", "#fb5607", "#ffbe0b"] },
+            { name: "Vintage Paper", tag: "Retro", colors: ["#f4f1de", "#e07a5f", "#3d405b", "#81b29a", "#f2cc8f"] },
+            { name: "Bauhaus", tag: "Retro", colors: ["#e63946", "#f1faee", "#a8dadc", "#457b9d", "#1d3557"] },
+            { name: "Sepia Tone", tag: "Retro", colors: ["#7f5539", "#9c6644", "#b08968", "#ddb892", "#e6ccb2"] },
+
+            // 8. 其他/報告 (Other)
+            { name: "Nordic Pastel", tag: "Other", colors: ["#94a3b8", "#cbd5e1", "#e2e8f0", "#94a3b8", "#64748b"] },
+            { name: "Minimalist", tag: "Other", colors: ["#212121", "#757575", "#BDBDBD", "#E0E0E0", "#F5F5F5"] },
+            { name: "Macarons", tag: "Other", colors: ["#ff99c8", "#fcf6bd", "#d0f4de", "#a9def9", "#e4c1f9"] },
+            { name: "Vibrant Sales", tag: "Other", colors: ["#ff595e", "#ffca3a", "#8ac926", "#1982c4", "#6a4c93"] },
+            { name: "Corporate Blue", tag: "Other", colors: ["#003f5c", "#2f4b7c", "#665191", "#a05195", "#d45087"] },
+            { name: "Warm Autumn", tag: "Other", colors: ["#264653", "#2a9d8f", "#e9c46a", "#f4a261", "#e76f51"] },
+            { name: "Cold Steel", tag: "Other", colors: ["#2b2d42", "#8d99ae", "#edf2f4", "#ef233c", "#d90429"] },
+            { name: "Pop Art", tag: "Other", colors: ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ffffff"] }
+        ];
+
+        // --- 初始化 ---
+        function init() {
+            renderPalettes(palettes); // 渲染所有色盤
+            currentColors = palettes[0].colors; // 預設第一組
+            renderPreview(); // 渲染預覽
+            if(loader) setTimeout(() => { loader.style.opacity = '0'; setTimeout(()=>loader.style.display='none', 500); }, 800);
+        }
+
+        // --- 核心：渲染色盤列表 ---
+        function renderPalettes(list) {
+            const grid = document.getElementById('palette-grid');
+            const countBadge = document.getElementById('count-badge');
+            
+            grid.innerHTML = ''; // 清空
+            countBadge.innerText = list.length;
+
+            if(list.length === 0) {
+                grid.innerHTML = `<div class="col-span-3 text-center py-10 text-slate-400">沒有符合條件的色盤</div>`;
+                return;
+            }
+
+            list.forEach((p) => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-5 rounded-xl shadow-sm border border-slate-100 hover:border-blue-300 transition-all cursor-pointer color-card flex flex-col h-full";
+                card.onclick = () => updateSelection(p.colors, card);
+
+                // 色塊生成
+                let colorSquares = "";
+                p.colors.forEach(c => {
+                    colorSquares += `
+                        <div class="group relative flex-1 h-14 first:rounded-l-lg last:rounded-r-lg hover:z-10 ring-0 hover:ring-2 ring-white transition-all transform hover:scale-110 shadow-none hover:shadow-lg" style="background-color: ${c}" onclick="copyColor('${c}', event)">
+                            <div class="copy-btn absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity text-white text-[10px] font-bold backdrop-blur-[1px] first:rounded-l-lg last:rounded-r-lg">
+                                COPY
+                            </div>
+                        </div>
+                    `;
+                });
+
+                // 標籤樣式
+                let tagClass = "bg-slate-100 text-slate-500";
+                if(p.tag === "Business") tagClass = "bg-blue-50 text-blue-600";
+                if(p.tag === "Nature") tagClass = "bg-green-50 text-green-600";
+                if(p.tag === "Sequential") tagClass = "bg-indigo-50 text-indigo-600";
+                if(p.tag === "Diverging") tagClass = "bg-purple-50 text-purple-600";
+                if(p.tag === "Dark Mode") tagClass = "bg-slate-800 text-slate-200";
+                if(p.tag === "Retro") tagClass = "bg-orange-50 text-orange-600";
+                if(p.tag === "LOL Colors") tagClass = "bg-pink-50 text-pink-600 border border-pink-200";
+                if(p.tag === "Coolors Best") tagClass = "bg-indigo-50 text-indigo-600 border border-indigo-200";
+                if(p.tag === "Multi-Color") tagClass = "bg-purple-50 text-purple-600 border border-purple-200 font-bold";
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <h3 class="font-bold text-slate-700 text-sm">${p.name}</h3>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full ${tagClass} font-medium">${p.tag}</span>
+                    </div>
+                    <div class="flex mb-3 shadow-inner rounded-lg bg-slate-50">
+                        ${colorSquares}
+                    </div>
+                    <div class="flex justify-between mt-auto">
+                        <span class="text-[10px] font-mono text-slate-300 uppercase">${p.colors[0]}</span>
+                        <span class="text-[10px] font-mono text-slate-300 uppercase">${p.colors[p.colors.length-1]}</span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // --- 互動：篩選器 ---
+        function filterPalettes(tag) {
+            // 更新按鈕樣式
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active', 'bg-blue-600', 'text-white', 'border-blue-600');
+                btn.classList.remove('active', 'bg-pink-600', 'text-white', 'border-pink-600'); 
+                btn.classList.remove('active', 'bg-indigo-600', 'text-white', 'border-indigo-600');
+                btn.classList.remove('active', 'bg-purple-600', 'text-white', 'border-purple-600');
+                
+                // 還原預設樣式
+                if(btn.innerText.includes('LOL')) {
+                     btn.className = "filter-btn px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 bg-white hover:border-blue-400 transition-all text-pink-600 hover:text-pink-700 hover:border-pink-300";
+                } else if(btn.innerText.includes('Coolors')) {
+                     btn.className = "filter-btn px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 bg-white hover:border-blue-400 transition-all text-indigo-600 hover:text-indigo-700 hover:border-indigo-300";
+                } else if(btn.innerText.includes('多色')) {
+                     btn.className = "filter-btn px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 bg-white hover:border-blue-400 transition-all text-purple-600 hover:text-purple-700 hover:border-purple-300 font-bold";
+                } else {
+                     btn.className = "filter-btn px-4 py-1.5 rounded-full text-sm font-medium border border-slate-200 bg-white text-slate-600 hover:border-blue-400 transition-all";
+                }
+            });
+
+            // 設定當前按鈕樣式
+            const target = event.target;
+            if(target.innerText.includes('LOL')) {
+                target.className = "filter-btn active px-4 py-1.5 rounded-full text-sm font-medium border border-pink-600 bg-pink-600 text-white transition-all";
+            } else if(target.innerText.includes('Coolors')) {
+                target.className = "filter-btn active px-4 py-1.5 rounded-full text-sm font-medium border border-indigo-600 bg-indigo-600 text-white transition-all";
+            } else if(target.innerText.includes('多色')) {
+                target.className = "filter-btn active px-4 py-1.5 rounded-full text-sm font-medium border border-purple-600 bg-purple-600 text-white transition-all font-bold";
+            } else {
+                target.className = "filter-btn active px-4 py-1.5 rounded-full text-sm font-medium border border-blue-600 bg-blue-600 text-white transition-all";
+            }
+
+            // 篩選邏輯
+            if(tag === 'All') {
+                renderPalettes(palettes);
+            } else {
+                const filtered = palettes.filter(p => p.tag === tag || (tag === 'Other' && !['Business','Nature','Sequential','Diverging','Accessibility','Dark Mode', 'Retro', 'LOL Colors', 'Coolors Best', 'Multi-Color'].includes(p.tag)));
+                renderPalettes(filtered);
+            }
+        }
+
+        // --- 互動：更新選取與預覽 ---
+        function updateSelection(colors, cardEl) {
+            currentColors = colors;
+            
+            // 卡片視覺回饋
+            document.querySelectorAll('.color-card').forEach(el => el.classList.remove('preview-active', 'ring-2', 'ring-blue-200', 'border-blue-500'));
+            cardEl.classList.add('preview-active', 'ring-2', 'ring-blue-200', 'border-blue-500');
+            
+            renderPreview();
+        }
+
+        // --- 核心：繪製預覽區 (支援多圖表與多主題) ---
+        function renderPreview() {
+            const tableBody = document.getElementById('table-body');
+            const chartBar = document.getElementById('chart-bar');
+            const chartDonut = document.getElementById('chart-donut');
+            const container = document.getElementById('preview-container');
+            const tableWrapper = document.getElementById('table-wrapper');
+            const donutCenter = document.getElementById('donut-center');
+
+            // 1. 設定主題樣式
+            if(currentTheme === 'dark') {
+                container.style.backgroundColor = '#0f172a'; // Slate-900
+                container.style.color = '#e2e8f0'; // Slate-200
+                tableWrapper.style.backgroundColor = 'rgba(30, 41, 59, 0.5)';
+                tableWrapper.style.borderColor = 'rgba(71, 85, 105, 0.5)';
+                donutCenter.style.backgroundColor = '#0f172a';
+                donutCenter.style.color = '#fff';
+            } else {
+                container.style.backgroundColor = '#ffffff';
+                container.style.color = '#1e293b'; // Slate-800
+                tableWrapper.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
+                tableWrapper.style.borderColor = '#e2e8f0';
+                donutCenter.style.backgroundColor = '#ffffff';
+                donutCenter.style.color = '#000';
+            }
+
+            // 2. 渲染表格
+            tableBody.innerHTML = '';
+            // 修正：限制顯示筆數不超過顏色數量，避免顏色不夠用
+            const displayData = mockData.slice(0, Math.max(5, currentColors.length)); 
+            
+            // 重新計算百分比模擬
+            let total = 0;
+            const dynamicData = displayData.map((d, i) => {
+                // 簡單的隨機數值模擬
+                const val = Math.floor(Math.random() * 300) + 50;
+                total += val;
+                return { ...d, val: val, label: `Category ${String.fromCharCode(65+i)}` };
+            });
+
+            dynamicData.forEach((d, i) => {
+                const color = currentColors[i % currentColors.length];
+                const pct = Math.round((d.val / total) * 100) + '%';
+                
+                const tr = document.createElement('tr');
+                tr.className = "border-b border-slate-200/10 hover:bg-slate-500/5 transition-colors";
+                tr.innerHTML = `
+                    <td class="px-5 py-3 flex items-center gap-3">
+                        <div class="w-3 h-3 rounded-full shadow-sm" style="background-color: ${color}"></div>
+                        <span class="font-medium">${d.label}</span>
+                    </td>
+                    <td class="px-5 py-3 text-right font-mono opacity-80">${d.val}</td>
+                    <td class="px-5 py-3 text-right font-bold text-xs opacity-60">${pct}</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+
+            // 3. 渲染圖表
+            if(currentChart === 'bar') {
+                chartBar.classList.remove('hidden');
+                chartDonut.classList.add('hidden');
+                chartBar.innerHTML = '';
+                
+                // 使用 dynamicData 來繪製圖表
+                dynamicData.forEach((d, i) => {
+                    const color = currentColors[i % currentColors.length];
+                    const bar = document.createElement('div');
+                    // 計算高度百分比
+                    const h = Math.max(15, Math.round((d.val / 400) * 100)); // 簡單縮放
+                    
+                    bar.className = "flex-1 mx-0.5 rounded-t transition-all duration-500 ease-out hover:opacity-80 relative group";
+                    bar.style.height = `${Math.min(100, h)}%`;
+                    bar.style.backgroundColor = color;
+                    
+                    // Tooltip
+                    bar.title = `${d.label}: ${d.val}`;
+                    
+                    chartBar.appendChild(bar);
+                });
+            } else {
+                // 甜甜圈圖邏輯 (Conic Gradient)
+                chartBar.classList.add('hidden');
+                chartDonut.classList.remove('hidden');
+                
+                // 產生 conic-gradient 字串
+                let gradientStr = "";
+                let startPct = 0;
+                // 為了視覺效果，我們把 colors 平均分配給 360 度 (這只是模擬，不是真實數據映射)
+                const segmentSize = 100 / currentColors.length; 
+                
+                currentColors.forEach((c, i) => {
+                    const endPct = startPct + segmentSize;
+                    gradientStr += `${c} ${startPct}% ${endPct}%,`;
+                    startPct = endPct;
+                });
+                gradientStr = gradientStr.slice(0, -1); // 移除最後一個逗號
+                
+                chartDonut.style.background = `conic-gradient(${gradientStr})`;
+            }
+        }
+
+        // --- 互動：切換圖表類型 ---
+        function setChartType(type) {
+            currentChart = type;
+            // 更新按鈕樣式
+            const btnBar = document.getElementById('btn-bar');
+            const btnDonut = document.getElementById('btn-donut');
+            
+            if(type === 'bar') {
+                btnBar.className = "px-3 py-1.5 text-xs font-semibold rounded-md bg-white shadow-sm text-slate-700 transition-all";
+                btnDonut.className = "px-3 py-1.5 text-xs font-semibold rounded-md text-slate-500 hover:text-slate-700 hover:bg-white/50 transition-all";
+            } else {
+                btnDonut.className = "px-3 py-1.5 text-xs font-semibold rounded-md bg-white shadow-sm text-slate-700 transition-all";
+                btnBar.className = "px-3 py-1.5 text-xs font-semibold rounded-md text-slate-500 hover:text-slate-700 hover:bg-white/50 transition-all";
+            }
+            renderPreview();
+        }
+
+        // --- 互動：切換主題 ---
+        function toggleTheme(theme) {
+            currentTheme = theme;
+            renderPreview();
+        }
+
+        // --- 工具：複製顏色 ---
+        function copyColor(hex, event) {
+            event.stopPropagation();
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(hex).then(() => showToast(hex));
+            } else {
+                const tempInput = document.createElement('input');
+                tempInput.value = hex;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempInput);
+                showToast(hex);
+            }
+        }
+
+        function showToast(hex) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            toastMsg.innerText = `已複製 ${hex}`;
+            toast.style.opacity = '1';
+            toast.style.transform = 'translate(-50%, 0)';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translate(-50%, 16px)';
+            }, 2000);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
