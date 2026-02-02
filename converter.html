@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Image Converter | 萬能轉檔器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: white; }
+        
+        /* 拖曳區動畫 */
+        #drop-zone { transition: all 0.3s ease; }
+        #drop-zone.dragover { border-color: #3b82f6; background-color: rgba(59, 130, 246, 0.1); transform: scale(1.02); }
+
+        /* 列表動畫 */
+        .file-item { animation: slideIn 0.3s ease-out forwards; }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 進度條 */
+        .progress-bar { transition: width 0.3s ease; }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- 導覽列 -->
+    <nav class="border-b border-slate-700 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <a href="index.html" class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium border border-slate-700 px-3 py-1.5 rounded-lg bg-slate-800">
+                    <span>🏠</span>
+                </a>
+                <span class="font-bold text-lg text-indigo-400 tracking-wide">Image Converter</span>
+            </div>
+            <div class="text-xs text-slate-500 hidden sm:block">Batch Process to JPG</div>
+        </div>
+    </nav>
+
+    <!-- 主畫面 -->
+    <main class="flex-grow flex flex-col items-center p-6 w-full max-w-4xl mx-auto">
+        
+        <!-- 標題 -->
+        <div class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-bold mb-4">圖片轉 JPG 神器</h1>
+            <p class="text-slate-400">支援 PNG, WEBP, GIF, SVG, BMP 批次轉換。<br>自動填充白底，隱私安全免上傳。</p>
+        </div>
+
+        <!-- 拖曳上傳區 -->
+        <div id="drop-zone" class="w-full max-w-2xl min-h-[200px] border-2 border-dashed border-slate-600 rounded-2xl flex flex-col items-center justify-center p-8 cursor-pointer hover:border-indigo-500 hover:bg-slate-800/50 mb-8" onclick="document.getElementById('fileInput').click()">
+            <div class="mb-4 text-slate-500 pointer-events-none">
+                <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+            </div>
+            <h3 class="text-xl font-bold text-white pointer-events-none">點擊或拖曳圖片至此</h3>
+            <p class="text-sm text-slate-500 mt-2 pointer-events-none">支援多檔批次上傳</p>
+            <input type="file" id="fileInput" accept="image/png, image/webp, image/gif, image/svg+xml, image/bmp, image/jpeg" multiple class="hidden" onchange="handleFiles(this.files)">
+        </div>
+
+        <!-- 設定區 -->
+        <div class="w-full max-w-2xl flex justify-between items-center mb-6 px-2">
+            <div class="flex items-center gap-2">
+                <span class="text-sm text-slate-400">品質設定:</span>
+                <select id="quality" class="bg-slate-800 border border-slate-700 text-white text-sm rounded px-2 py-1 outline-none focus:border-indigo-500">
+                    <option value="0.92">92% (推薦)</option>
+                    <option value="1.0">100% (無損)</option>
+                    <option value="0.8">80% (瘦身)</option>
+                    <option value="0.6">60% (極小)</option>
+                </select>
+            </div>
+            <button onclick="clearAll()" class="text-xs text-red-400 hover:text-red-300 underline">清空列表</button>
+        </div>
+
+        <!-- 檔案列表 -->
+        <div id="file-list" class="w-full max-w-2xl space-y-3">
+            <!-- JS 動態生成 -->
+        </div>
+
+    </main>
+
+    <footer class="py-6 text-center text-slate-600 text-xs border-t border-slate-800">
+        &copy; 2026 Sandy's Web Tools. All conversion happens locally.
+    </footer>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileList = document.getElementById('file-list');
+        const qualitySelect = document.getElementById('quality');
+
+        // --- 拖曳事件 ---
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+        });
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        // --- 核心邏輯 ---
+        function handleFiles(files) {
+            const validTypes = ['image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/bmp', 'image/jpeg'];
+            
+            ([...files]).forEach(file => {
+                // 1. 檢查格式
+                if (!validTypes.includes(file.type)) {
+                    alert(`不支援的格式: ${file.name}\n目前僅支援瀏覽器原生格式 (PNG, GIF, WEBP, SVG, BMP)`);
+                    return;
+                }
+
+                // 2. 建立 UI 卡片
+                const id = Math.random().toString(36).substr(2, 9);
+                createFileCard(id, file);
+
+                // 3. 開始轉檔
+                convertImage(id, file);
+            });
+        }
+
+        function createFileCard(id, file) {
+            const div = document.createElement('div');
+            div.id = `card-${id}`;
+            div.className = "file-item bg-slate-800 border border-slate-700 rounded-xl p-4 flex items-center gap-4 relative overflow-hidden";
+            div.innerHTML = `
+                <div class="w-16 h-16 bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <img id="thumb-${id}" class="w-full h-full object-cover opacity-50 transition-opacity">
+                </div>
+                <div class="flex-grow min-w-0">
+                    <div class="flex justify-between mb-1">
+                        <h4 class="text-sm font-bold text-white truncate pr-4">${file.name}</h4>
+                        <span id="status-${id}" class="text-xs font-mono text-indigo-400">處理中...</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-slate-500">
+                        <span>${(file.size/1024).toFixed(1)} KB</span>
+                        <span>→</span>
+                        <span class="font-bold text-slate-300">JPG</span>
+                    </div>
+                    <div class="w-full bg-slate-700 h-1 mt-2 rounded-full overflow-hidden">
+                        <div id="progress-${id}" class="progress-bar bg-indigo-500 h-full w-0"></div>
+                    </div>
+                </div>
+                <a id="btn-${id}" class="hidden bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg flex-shrink-0">
+                    下載
+                </a>
+            `;
+            fileList.prepend(div);
+        }
+
+        function convertImage(id, file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.src = e.target.result;
+                
+                img.onload = () => {
+                    // 更新縮圖
+                    document.getElementById(`thumb-${id}`).src = img.src;
+                    document.getElementById(`thumb-${id}`).classList.remove('opacity-50');
+
+                    // 建立 Canvas
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+
+                    // 關鍵：填充白色背景 (解決 PNG 透明變黑的問題)
+                    ctx.fillStyle = "#FFFFFF";
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    // 繪製圖片
+                    ctx.drawImage(img, 0, 0);
+
+                    // 匯出 JPG
+                    const quality = parseFloat(qualitySelect.value);
+                    const newDataUrl = canvas.toDataURL('image/jpeg', quality);
+                    
+                    // 計算新大小
+                    const head = 'data:image/jpeg;base64,';
+                    const fileSize = Math.round((newDataUrl.length - head.length) * 3 / 4);
+                    
+                    // 更新 UI
+                    const progressBar = document.getElementById(`progress-${id}`);
+                    progressBar.style.width = "100%";
+                    progressBar.classList.replace('bg-indigo-500', 'bg-green-500');
+
+                    const statusText = document.getElementById(`status-${id}`);
+                    statusText.innerText = "完成";
+                    statusText.classList.replace('text-indigo-400', 'text-green-400');
+
+                    // 設定下載按鈕
+                    const btn = document.getElementById(`btn-${id}`);
+                    btn.href = newDataUrl;
+                    // 新檔名：原檔名去除副檔名 + .jpg
+                    const newName = file.name.replace(/\.[^/.]+$/, "") + ".jpg";
+                    btn.download = newName;
+                    btn.classList.remove('hidden');
+                    btn.innerText = `下載 (${(fileSize/1024).toFixed(1)} KB)`;
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearAll() {
+            if(confirm('確定要清空列表嗎？')) {
+                fileList.innerHTML = '';
+            }
+        }
+    </script>
+</body>
+</html>

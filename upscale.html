@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Upscaler | 畫質增強工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: white; }
+        
+        .compare-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            line-height: 0; 
+            cursor: col-resize;
+            max-height: 70vh;
+            user-select: none;
+        }
+
+        .compare-image { width: 100%; height: auto; display: block; }
+
+        .img-overlay {
+            position: absolute; top: 0; left: 0; height: 100%; width: 50%;
+            overflow: hidden; border-right: 2px solid white;
+            background-color: #0f172a;
+        }
+        
+        .handle {
+            position: absolute; top: 50%; right: -16px; width: 32px; height: 32px;
+            background: white; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5); z-index: 10;
+            transform: translateY(-50%); pointer-events: none;
+        }
+
+        .label {
+            position: absolute; top: 10px; padding: 4px 12px;
+            background: rgba(0,0,0,0.7); color: white; font-size: 12px; 
+            border-radius: 4px; pointer-events: none; font-weight: bold; z-index: 5;
+        }
+        .label-before { right: 10px; }
+        .label-after { left: 10px; background: rgba(59, 130, 246, 0.8); }
+
+        .loader {
+            border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6;
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* 滑桿樣式 */
+        input[type=range] {
+            -webkit-appearance: none; width: 100%; background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 16px; width: 16px;
+            border-radius: 50%; background: #3b82f6; cursor: pointer;
+            margin-top: -6px; box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer;
+            background: #475569; border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- 導覽列 -->
+    <nav class="border-b border-slate-700 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <a href="index.html" class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium border border-slate-700 px-3 py-1.5 rounded-lg bg-slate-800">
+                    <span>🏠</span>
+                </a>
+                <span class="font-bold text-lg text-emerald-400 tracking-wide">Smart Upscaler Pro</span>
+            </div>
+            <div class="text-xs text-slate-500 hidden sm:block">Algorithmic Enhancement v2.0</div>
+        </div>
+    </nav>
+
+    <!-- 主畫面 -->
+    <main class="flex-grow flex flex-col items-center justify-center p-6 w-full max-w-5xl mx-auto">
+        
+        <!-- 上傳區 -->
+        <div id="upload-area" class="w-full max-w-xl text-center py-12 px-6 border-2 border-dashed border-slate-600 rounded-2xl hover:border-emerald-500 hover:bg-slate-800/50 transition-all cursor-pointer group" onclick="document.getElementById('fileInput').click()">
+            <div class="mb-4 text-slate-500 group-hover:text-emerald-400 transition-colors">
+                <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            </div>
+            <h2 class="text-2xl font-bold mb-2 text-white">上傳圖片 (專業版)</h2>
+            <p class="text-slate-400 text-sm">支援手動調整銳化強度，放大 2 倍。</p>
+            <input type="file" id="fileInput" accept="image/*" class="hidden" onchange="handleImage(this)">
+        </div>
+
+        <!-- 處理中 -->
+        <div id="processing-ui" class="hidden flex-col items-center">
+            <div class="loader mb-4"></div>
+            <p class="text-emerald-300 animate-pulse">正在運算...</p>
+        </div>
+
+        <!-- 結果區 -->
+        <div id="result-area" class="hidden w-full flex flex-col gap-6">
+            
+            <!-- 控制面板 (上方) -->
+            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-wrap gap-4 items-center justify-between">
+                
+                <div class="flex items-center gap-4 flex-1 min-w-[200px]">
+                    <span class="text-xs font-bold text-slate-400">銳化強度: <span id="sharp-val" class="text-white">60%</span></span>
+                    <input type="range" id="sharp-slider" min="0" max="200" value="60" oninput="updateSharpenPreview(this.value)" onchange="applySharpen(this.value)">
+                </div>
+
+                <div class="flex gap-2">
+                    <button class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium text-sm transition-colors shadow-lg" onclick="downloadImage()">
+                        下載圖片
+                    </button>
+                    <button class="px-4 py-2 text-slate-400 hover:text-white text-sm border border-slate-600 rounded-lg hover:bg-slate-700" onclick="reset()">
+                        重來
+                    </button>
+                </div>
+            </div>
+
+            <!-- 比較視窗 -->
+            <div class="compare-container shadow-2xl mx-auto" id="compare-box" onmousemove="moveSlider(event)" ontouchmove="moveSlider(event)">
+                <img id="img-original" class="compare-image" src="" alt="Original">
+                <span class="label label-before">原始放大</span>
+
+                <div id="overlay" class="img-overlay">
+                    <img id="img-processed" class="compare-image" src="" alt="Processed">
+                    <span class="label label-after">增強銳化</span>
+                    <div class="handle">
+                        <svg class="w-4 h-4 text-slate-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 隱藏 Canvas -->
+    <canvas id="canvas-original" style="display: none;"></canvas>
+    <canvas id="canvas-process" style="display: none;"></canvas>
+
+    <script>
+        const uploadArea = document.getElementById('upload-area');
+        const processingUi = document.getElementById('processing-ui');
+        const resultArea = document.getElementById('result-area');
+        const imgOriginal = document.getElementById('img-original');
+        const imgProcessed = document.getElementById('img-processed');
+        const overlay = document.getElementById('overlay');
+        const canvasOriginal = document.getElementById('canvas-original');
+        const ctxOriginal = canvasOriginal.getContext('2d');
+        const canvasProcess = document.getElementById('canvas-process');
+        const ctxProcess = canvasProcess.getContext('2d');
+        
+        let originalImageData = null; // 儲存原始像素數據以便重複運算
+
+        function reset() {
+            uploadArea.classList.remove('hidden');
+            resultArea.classList.add('hidden');
+            imgOriginal.src = '';
+            imgProcessed.src = '';
+            document.getElementById('fileInput').value = '';
+        }
+
+        function handleImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    processImage(e.target.result);
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function processImage(src) {
+            uploadArea.classList.add('hidden');
+            processingUi.classList.remove('hidden');
+            processingUi.classList.add('flex');
+
+            const img = new Image();
+            img.src = src;
+            img.onload = () => {
+                const scale = 2;
+                const w = img.width * scale;
+                const h = img.height * scale;
+
+                // 1. 設定 Canvas 大小
+                canvasOriginal.width = w;
+                canvasOriginal.height = h;
+                canvasProcess.width = w;
+                canvasProcess.height = h;
+
+                // 2. 繪製並放大原始圖 (使用高品質插值)
+                ctxOriginal.imageSmoothingEnabled = true;
+                ctxOriginal.imageSmoothingQuality = 'high';
+                ctxOriginal.drawImage(img, 0, 0, w, h);
+                
+                // 儲存原始資料供後續運算
+                originalImageData = ctxOriginal.getImageData(0, 0, w, h);
+                
+                // 顯示「未銳化」的底圖
+                imgOriginal.src = canvasOriginal.toDataURL('image/jpeg', 0.9);
+
+                // 3. 初次執行銳化 (預設 60%)
+                applySharpen(60);
+            };
+        }
+
+        // 更新數值顯示
+        function updateSharpenPreview(val) {
+            document.getElementById('sharp-val').innerText = val + '%';
+        }
+
+        // 執行銳化 (Web Worker 模擬，避免卡頓)
+        function applySharpen(amount) {
+            // 顯示 Loading (如果是調整滑桿，可以不顯示，但為了流暢感我們先做 Debounce)
+            // 這裡簡化直接計算
+            
+            const strength = amount / 100; // 0.0 ~ 2.0
+            
+            // 使用 setTimeout 讓 UI 有機會更新
+            setTimeout(() => {
+                if (!originalImageData) return;
+
+                const sharpenedData = sharpen(originalImageData, strength);
+                ctxProcess.putImageData(sharpenedData, 0, 0);
+                
+                imgProcessed.src = canvasProcess.toDataURL('image/jpeg', 0.95);
+                
+                // 顯示結果
+                processingUi.classList.add('hidden');
+                processingUi.classList.remove('flex');
+                resultArea.classList.remove('hidden');
+                syncImageWidth();
+            }, 50);
+        }
+
+        // --- 核心演算法：可調式銳化 (Unsharp Masking Logic) ---
+        function sharpen(imageData, mix) {
+            const w = imageData.width;
+            const h = imageData.height;
+            const data = imageData.data;
+            const output = new Uint8ClampedArray(data); 
+
+            // 這裡使用一個比較強烈的銳化矩陣，並透過 mix 控制混合比例
+            // Kernel:
+            //  0 -1  0
+            // -1  5 -1
+            //  0 -1  0
+            // 這種矩陣會強化邊緣對比
+            
+            const w0 = -1;
+            const w1 = 5;
+            const w2 = -1;
+            const w3 = -1;
+            const w4 = -1;
+
+            // 為了效能，我們不跑完整的 3x3 迴圈，直接展開運算
+            for (let y = 1; y < h - 1; y++) {
+                for (let x = 1; x < w - 1; x++) {
+                    const i = (y * w + x) * 4; // 中心點像素索引
+                    
+                    // 周圍像素索引
+                    const up = i - w * 4;
+                    const down = i + w * 4;
+                    const left = i - 4;
+                    const right = i + 4;
+
+                    // 對 RGB 三通道做卷積
+                    for (let c = 0; c < 3; c++) {
+                        const val = 
+                            data[up + c] * w0 +
+                            data[left + c] * w3 +
+                            data[i + c] * w1 +
+                            data[right + c] * w4 +
+                            data[down + c] * w2;
+                        
+                        // 混合：原始值 + (銳化後的差異 * 強度)
+                        // 這裡 mix 直接控制銳化結果的混合程度
+                        // 當 mix = 0，顯示原圖
+                        // 當 mix > 1，會產生過度銳化 (HDR感)
+                        
+                        // 簡單的線性插值混合
+                        output[i + c] = data[i + c] * (1 - mix * 0.5) + val * (mix * 0.5);
+                    }
+                    // Alpha 不變
+                    output[i + 3] = 255;
+                }
+            }
+            
+            return new ImageData(output, w, h);
+        }
+
+        // --- 滑桿互動 ---
+        function moveSlider(e) {
+            const container = document.getElementById('compare-box');
+            const rect = container.getBoundingClientRect();
+            let x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+            if (x < 0) x = 0;
+            if (x > rect.width) x = rect.width;
+            overlay.style.width = x + 'px';
+        }
+
+        function downloadImage() {
+            const link = document.createElement('a');
+            link.download = 'enhanced-image.jpg';
+            link.href = imgProcessed.src;
+            link.click();
+        }
+        
+        window.addEventListener('resize', syncImageWidth);
+        imgOriginal.onload = syncImageWidth;
+        
+        function syncImageWidth() {
+            if(imgOriginal.clientWidth > 0) {
+                imgProcessed.style.width = imgOriginal.clientWidth + 'px';
+                imgProcessed.style.maxWidth = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
