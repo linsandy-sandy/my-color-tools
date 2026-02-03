@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instant Archiver Pro | 雙向壓縮工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- JSZip 核心庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- FileSaver 下載庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            background-color: #0f172a; 
+            color: white; 
+            font-family: 'Inter', sans-serif; 
+            background-image: radial-gradient(#1e293b 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+        
+        .drop-zone {
+            background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='24' ry='24' stroke='%236366F1FF' stroke-width='2' stroke-dasharray='12%2c 12' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e");
+            transition: all 0.3s ease;
+        }
+        .drop-zone:hover, .drop-zone.active {
+            background-color: rgba(99, 102, 241, 0.1);
+            transform: scale(1.01);
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* 模式切換按鈕 */
+        .mode-btn {
+            @apply px-4 py-2 rounded-lg text-sm font-bold transition-all;
+        }
+        .mode-btn.active {
+            @apply bg-indigo-600 text-white shadow-lg;
+        }
+        .mode-btn.inactive {
+            @apply text-slate-400 hover:text-white hover:bg-slate-800;
+        }
+
+        /* 列表動畫 */
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .file-item { animation: slideIn 0.2s ease-out forwards; }
+
+        /* 強制選單深色背景 */
+        select {
+            background-color: #1e293b !important;
+            color: white !important;
+        }
+        option {
+            background-color: #1e293b !important;
+            color: white !important;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-slate-900/80 backdrop-blur border-b border-slate-700 sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <a href="index.html" class="flex items-center justify-center w-10 h-10 rounded-full bg-slate-800 text-slate-400 hover:bg-indigo-500 hover:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                    </svg>
+                </a>
+                <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500 tracking-wider">
+                    Instant Archiver <span class="text-xs border border-indigo-500/50 text-indigo-400 px-1 rounded ml-1">PRO</span>
+                </h1>
+            </div>
+            
+            <!-- 模式切換 -->
+            <div class="bg-slate-800 p-1 rounded-xl flex">
+                <button onclick="switchMode('compress')" id="mode-compress" class="mode-btn active">📦 打包壓縮</button>
+                <button onclick="switchMode('extract')" id="mode-extract" class="mode-btn inactive">📂 解壓縮</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-4xl mx-auto w-full p-6">
+        
+        <!-- 上傳區 -->
+        <div id="drop-zone" class="drop-zone rounded-3xl p-12 text-center cursor-pointer mb-8 relative group">
+            <input type="file" id="fileInput" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" multiple>
+            <div class="pointer-events-none transition-transform group-hover:-translate-y-2 duration-300">
+                <div class="w-20 h-20 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-500/20 group-hover:shadow-indigo-500/40 transition-shadow">
+                    <svg id="icon-compress" class="w-10 h-10 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                    <svg id="icon-extract" class="w-10 h-10 text-purple-400 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"></path></svg>
+                </div>
+                <h2 class="text-2xl font-bold text-white mb-2" id="drop-title">拖放檔案或資料夾至此</h2>
+                <p class="text-slate-400" id="drop-desc">支援批次打包 • 瀏覽器端處理</p>
+            </div>
+        </div>
+
+        <!-- 壓縮控制面板 (僅壓縮模式顯示) -->
+        <div id="compress-controls" class="glass-panel rounded-xl p-4 mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-4 w-full md:w-auto">
+                <div class="flex items-center gap-2 bg-slate-800 px-3 py-2 rounded-lg border border-slate-700 w-full md:w-auto">
+                    <span class="text-xs text-slate-400 font-bold uppercase">檔名</span>
+                    <input type="text" id="filename" value="archive" class="bg-transparent border-none text-white text-sm focus:ring-0 outline-none w-32 placeholder-slate-600">
+                    <span class="text-xs text-slate-500">.zip</span>
+                </div>
+                
+                <div class="flex items-center gap-2 bg-slate-800 px-3 py-2 rounded-lg border border-slate-700">
+                    <span class="text-xs text-slate-400 font-bold uppercase">模式</span>
+                    <select id="compressionLevel" class="bg-slate-800 border-none text-white text-sm focus:ring-0 outline-none cursor-pointer">
+                        <option value="6">標準壓縮 (預設)</option>
+                        <option value="STORE">僅打包 (不壓縮)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="text-right w-full md:w-auto">
+                <span class="text-xs text-slate-400 block">待處理檔案</span>
+                <span id="total-size" class="text-lg font-bold text-white">0 MB</span>
+            </div>
+        </div>
+
+        <!-- 解壓縮控制面板 (僅解壓模式顯示) -->
+        <div id="extract-controls" class="glass-panel rounded-xl p-4 mb-6 hidden">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-purple-500/20 text-purple-400 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-white font-bold" id="zip-name">archive.zip</h3>
+                        <p class="text-xs text-slate-400">點擊下方按鈕下載單一檔案</p>
+                    </div>
+                </div>
+                <button onclick="clearAll()" class="text-xs text-red-400 hover:text-red-300 hover:underline">清除重來</button>
+            </div>
+        </div>
+
+        <!-- 檔案列表 -->
+        <div id="file-list" class="space-y-3 mb-24">
+            <!-- 列表項目將動態生成 -->
+        </div>
+
+        <!-- 底部動作列 (僅壓縮模式顯示) -->
+        <div id="action-bar" class="hidden fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur border-t border-slate-700 p-4 z-40">
+            <div class="max-w-4xl mx-auto flex justify-between items-center">
+                <div class="flex flex-col">
+                    <div class="text-sm text-slate-400">
+                        已選擇 <span id="file-count" class="text-white font-bold">0</span> 個檔案
+                    </div>
+                    <!-- 提示訊息 -->
+                    <div id="compression-hint" class="text-[10px] text-yellow-500 hidden mt-1">
+                        ⚠️ 檔案變小幅度有限？Office/圖片檔通常已內建壓縮。
+                    </div>
+                </div>
+                
+                <div class="flex gap-3 items-center w-full md:w-auto justify-end">
+                    <!-- 進度條容器 -->
+                    <div id="progress-container" class="hidden flex-grow md:w-64 bg-slate-700 rounded-full h-2 overflow-hidden">
+                        <div id="progress-bar" class="bg-indigo-500 h-full w-0 transition-all duration-300"></div>
+                    </div>
+                    <span id="progress-text" class="hidden text-xs text-indigo-400 font-bold whitespace-nowrap">正在壓縮...</span>
+
+                    <button id="download-btn" onclick="generateZip()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-xl font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-95 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        執行打包
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('file-list');
+        const actionBar = document.getElementById('action-bar');
+        const fileCountEl = document.getElementById('file-count');
+        const totalSizeEl = document.getElementById('total-size');
+        const progressBar = document.getElementById('progress-bar');
+        const progressContainer = document.getElementById('progress-container');
+        const progressText = document.getElementById('progress-text');
+        const downloadBtn = document.getElementById('download-btn');
+        const compressControls = document.getElementById('compress-controls');
+        const extractControls = document.getElementById('extract-controls');
+        const compressionHint = document.getElementById('compression-hint');
+        
+        let currentMode = 'compress'; // 'compress' or 'extract'
+        let filesQueue = []; // For compression
+        let extractedFiles = []; // For extraction
+        let totalInputBytes = 0;
+
+        // --- Mode Switching ---
+        function switchMode(mode) {
+            currentMode = mode;
+            clearAll();
+            
+            const btnCompress = document.getElementById('mode-compress');
+            const btnExtract = document.getElementById('mode-extract');
+            const iconCompress = document.getElementById('icon-compress');
+            const iconExtract = document.getElementById('icon-extract');
+            const dropTitle = document.getElementById('drop-title');
+            const dropDesc = document.getElementById('drop-desc');
+
+            if (mode === 'compress') {
+                btnCompress.className = "mode-btn active";
+                btnExtract.className = "mode-btn inactive";
+                iconCompress.classList.remove('hidden');
+                iconExtract.classList.add('hidden');
+                dropTitle.innerText = "拖放檔案或資料夾至此";
+                dropDesc.innerText = "支援批次打包 • 瀏覽器端加密壓縮";
+                compressControls.classList.remove('hidden');
+                extractControls.classList.add('hidden');
+                fileInput.removeAttribute('accept'); // Accept all
+            } else {
+                btnCompress.className = "mode-btn inactive";
+                btnExtract.className = "mode-btn active";
+                iconCompress.classList.add('hidden');
+                iconExtract.classList.remove('hidden');
+                dropTitle.innerText = "拖放 ZIP 檔案至此";
+                dropDesc.innerText = "支援標準 ZIP (不支援加密/7z)";
+                compressControls.classList.add('hidden');
+                extractControls.classList.remove('hidden');
+                fileInput.setAttribute('accept', '.zip,application/zip');
+            }
+        }
+
+        function clearAll() {
+            filesQueue = [];
+            extractedFiles = [];
+            fileList.innerHTML = '';
+            actionBar.classList.add('hidden');
+            totalSizeEl.innerText = "0 MB";
+            document.getElementById('zip-name').innerText = "未選擇檔案";
+            compressionHint.classList.add('hidden');
+            totalInputBytes = 0;
+            if (currentMode === 'extract') extractControls.classList.add('hidden');
+        }
+
+        // --- Drag & Drop ---
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+        
+        dropZone.addEventListener('dragover', () => dropZone.classList.add('active'));
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('active'));
+        dropZone.addEventListener('drop', handleDrop);
+        fileInput.addEventListener('change', handleFiles);
+
+        function handleDrop(e) {
+            dropZone.classList.remove('active');
+            const dt = e.dataTransfer;
+            
+            // 檢查檔案類型
+            if (currentMode === 'extract' && dt.files.length > 0) {
+                const name = dt.files[0].name.toLowerCase();
+                if (name.endsWith('.7z') || name.endsWith('.rar')) {
+                    alert("不支援此格式！本工具僅支援標準 ZIP，不支援 7z 或 RAR。");
+                    return;
+                }
+            }
+            
+            // 智慧偵測：如果只有一個檔案且是 zip，自動切換到解壓模式
+            if (dt.files.length === 1 && dt.files[0].name.toLowerCase().endsWith('.zip') && currentMode === 'compress') {
+                if(confirm("偵測到 ZIP 檔，是否切換到「解壓縮模式」？")) {
+                    switchMode('extract');
+                    processZipFile(dt.files[0]);
+                    return;
+                }
+            }
+
+            if (currentMode === 'compress') {
+                if (dt.items && dt.items.length > 0 && dt.items[0].webkitGetAsEntry) {
+                    traverseFileTree(dt.items);
+                } else {
+                    addFilesToQueue(dt.files);
+                }
+            } else {
+                // Extract mode
+                if (dt.files.length > 0) processZipFile(dt.files[0]);
+            }
+        }
+
+        function handleFiles(e) {
+            const files = e.target.files;
+            if (currentMode === 'compress') {
+                addFilesToQueue(files);
+            } else {
+                if (files.length > 0) processZipFile(files[0]);
+            }
+            fileInput.value = '';
+        }
+
+        // --- Compression Logic ---
+        function traverseFileTree(items) {
+            const promises = [];
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i].webkitGetAsEntry();
+                if (item) promises.push(scanFiles(item));
+            }
+            Promise.all(promises).then(() => updateUI());
+        }
+
+        function scanFiles(item, path = "") {
+            return new Promise(resolve => {
+                if (item.isFile) {
+                    item.file(file => {
+                        file.filepath = path + file.name;
+                        filesQueue.push(file);
+                        resolve();
+                    });
+                } else if (item.isDirectory) {
+                    const dirReader = item.createReader();
+                    dirReader.readEntries(entries => {
+                        const promises = [];
+                        for (let i = 0; i < entries.length; i++) {
+                            promises.push(scanFiles(entries[i], path + item.name + "/"));
+                        }
+                        Promise.all(promises).then(resolve);
+                    });
+                }
+            });
+        }
+
+        function addFilesToQueue(files) {
+            for (let i = 0; i < files.length; i++) {
+                files[i].filepath = files[i].name; 
+                filesQueue.push(files[i]);
+            }
+            updateUI();
+        }
+
+        function removeFile(index) {
+            filesQueue.splice(index, 1);
+            updateUI();
+        }
+
+        function generateZip() {
+            if (filesQueue.length === 0) return;
+
+            const zip = new JSZip();
+            const levelVal = document.getElementById('compressionLevel').value;
+            const filename = document.getElementById('filename').value || "archive";
+
+            downloadBtn.disabled = true;
+            downloadBtn.classList.add('opacity-50');
+            progressContainer.classList.remove('hidden');
+            progressText.classList.remove('hidden');
+            progressBar.style.width = '0%';
+            compressionHint.classList.add('hidden'); // 重置提示
+
+            filesQueue.forEach(file => zip.file(file.filepath || file.name, file));
+
+            const options = { type: "blob" };
+            if (levelVal !== "STORE") {
+                options.compression = "DEFLATE";
+                options.compressionOptions = { level: parseInt(levelVal) };
+            }
+
+            zip.generateAsync(options, (metadata) => {
+                progressBar.style.width = metadata.percent + "%";
+                progressText.innerText = "處理中 " + metadata.percent.toFixed(0) + "%";
+            }).then(function(content) {
+                saveAs(content, `${filename}.zip`);
+                
+                // 智慧提示：如果壓縮率低於 10%
+                if (content.size > totalInputBytes * 0.90 && levelVal !== "STORE") {
+                    compressionHint.classList.remove('hidden');
+                }
+
+                setTimeout(() => {
+                    progressBar.style.width = '0%';
+                    progressContainer.classList.add('hidden');
+                    progressText.classList.add('hidden');
+                    downloadBtn.disabled = false;
+                    downloadBtn.classList.remove('opacity-50');
+                    progressText.innerText = "完成！";
+                }, 1000);
+            });
+        }
+
+        // --- Extraction Logic ---
+        function processZipFile(file) {
+            const name = file.name.toLowerCase();
+            if (name.endsWith('.7z') || name.endsWith('.rar')) {
+                alert("不支援此格式！本工具僅支援標準 ZIP，不支援 7z 或 RAR。");
+                return;
+            }
+            if (file.type !== "application/zip" && !name.endsWith('.zip')) {
+                alert("請上傳 ZIP 格式檔案");
+                return;
+            }
+
+            document.getElementById('zip-name').innerText = file.name;
+            extractControls.classList.remove('hidden');
+            fileList.innerHTML = '<div class="text-center text-slate-500 py-4">正在讀取檔案結構...</div>';
+
+            JSZip.loadAsync(file).then(function(zip) {
+                fileList.innerHTML = '';
+                extractedFiles = zip;
+                
+                let count = 0;
+                zip.forEach(function (relativePath, zipEntry) {
+                    if (!zipEntry.dir) {
+                        createExtractItem(zipEntry);
+                        count++;
+                    }
+                });
+                
+                if (count === 0) fileList.innerHTML = '<div class="text-center text-slate-500">此壓縮檔是空的</div>';
+            }, function (e) {
+                fileList.innerHTML = '<div class="text-center text-red-400">無法讀取 ZIP 檔，可能已損毀、加密或格式不支援。</div>';
+            });
+        }
+
+        function createExtractItem(zipEntry) {
+            const div = document.createElement('div');
+            div.className = "file-item glass-panel rounded-lg p-3 flex justify-between items-center group hover:bg-slate-800/50 transition-colors";
+            
+            const isImg = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(zipEntry.name);
+            const icon = isImg 
+                ? '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>'
+                : '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/></svg>';
+
+            div.innerHTML = `
+                <div class="flex items-center gap-3 overflow-hidden">
+                    <div class="w-8 h-8 bg-slate-700 rounded flex items-center justify-center text-slate-400">
+                        ${icon}
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-sm font-bold text-slate-200 truncate pr-4">${zipEntry.name}</p>
+                        <p class="text-xs text-slate-500">待解壓</p>
+                    </div>
+                </div>
+                <button class="dl-btn text-indigo-400 hover:text-white bg-indigo-500/10 hover:bg-indigo-500 px-3 py-1 rounded text-xs font-bold transition-colors">
+                    下載
+                </button>
+            `;
+            
+            const btn = div.querySelector('.dl-btn');
+            btn.onclick = () => {
+                btn.innerText = "解壓中...";
+                zipEntry.async("blob").then(function(content) {
+                    saveAs(content, zipEntry.name.split('/').pop());
+                    btn.innerText = "已下載";
+                    btn.className = "text-green-400 bg-green-500/10 px-3 py-1 rounded text-xs font-bold cursor-default";
+                });
+            };
+
+            fileList.appendChild(div);
+        }
+
+        // --- Common UI ---
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        function updateUI() {
+            if (currentMode === 'extract') return;
+
+            fileList.innerHTML = '';
+            totalInputBytes = 0;
+
+            filesQueue.forEach((file, index) => {
+                totalInputBytes += file.size;
+                const div = document.createElement('div');
+                div.className = "file-item glass-panel rounded-lg p-3 flex justify-between items-center group hover:bg-slate-800/50 transition-colors";
+                div.innerHTML = `
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <div class="w-8 h-8 bg-slate-700 rounded flex items-center justify-center text-slate-400">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/></svg>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-sm font-bold text-slate-200 truncate pr-4">${file.filepath || file.name}</p>
+                            <p class="text-xs text-slate-500">${formatBytes(file.size)}</p>
+                        </div>
+                    </div>
+                    <button onclick="removeFile(${index})" class="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-700 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                `;
+                fileList.appendChild(div);
+            });
+
+            fileCountEl.innerText = filesQueue.length;
+            totalSizeEl.innerText = formatBytes(totalInputBytes);
+            
+            if (filesQueue.length > 0) {
+                actionBar.classList.remove('hidden');
+            } else {
+                actionBar.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
