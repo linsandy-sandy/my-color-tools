@@ -34,16 +34,16 @@
         <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
             <div class="flex items-center gap-3">
                 <a href="index.html" class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium border border-slate-700 px-3 py-1.5 rounded-lg bg-slate-800"><span>🏠</span></a>
-                <span class="font-bold text-lg text-cyan-400 tracking-wide">Magic Eraser v2</span>
+                <span class="font-bold text-lg text-cyan-400 tracking-wide">Magic Eraser v3</span>
             </div>
-            <div class="text-xs text-slate-500 hidden sm:block">Stable Edition</div>
+            <div class="text-xs text-slate-500 hidden sm:block">Dynamic Loader Edition</div>
         </div>
     </nav>
 
     <main class="flex-grow flex flex-col items-center p-6 w-full max-w-6xl mx-auto">
         <div class="text-center mb-10">
             <h1 class="text-3xl md:text-4xl font-bold mb-4">AI 一鍵去背神器</h1>
-            <p class="text-slate-400">自動優化尺寸，提升成功率。<br><span class="text-xs text-slate-500">(瀏覽器本地運算，首次需載入模型)</span></p>
+            <p class="text-slate-400">自動優化尺寸，提升成功率。V10.3版<br><span class="text-xs text-slate-500">(瀏覽器本地運算，首次需載入模型)</span></p>
         </div>
 
         <div id="upload-area" class="w-full max-w-xl text-center py-12 px-6 border-2 border-dashed border-slate-600 rounded-2xl hover:border-cyan-500 hover:bg-slate-800/50 transition-all cursor-pointer group mb-8" onclick="document.getElementById('fileInput').click()">
@@ -90,10 +90,9 @@
         &copy; 2026 Sandy's Web Tools. Powered by imgly.
     </footer>
 
+    <!-- 使用 type="module" -->
     <script type="module">
-        // 使用 unpkg CDN，版本對齊 1.0.5
-        import removeBackground from "https://unpkg.com/@imgly/background-removal@1.0.5/dist/imgly-background-removal.mjs";
-
+        // 變數宣告
         const fileInput = document.getElementById('fileInput');
         const uploadArea = document.getElementById('upload-area');
         const processingUi = document.getElementById('processing-ui');
@@ -105,6 +104,7 @@
         const progressBar = document.getElementById('progress-bar');
         const scanLine = document.getElementById('scan-line');
 
+        // 定義全域函式 (因為在 module 中，必須手動綁定到 window)
         window.reset = function() {
             uploadArea.classList.remove('hidden');
             resultArea.classList.add('hidden');
@@ -124,73 +124,77 @@
             link.click();
         }
 
-        // 圖片縮放工具 (關鍵修復：防止大圖當機)
+        // 圖片縮放工具
         async function resizeImage(file, maxWidth = 1200) {
             return new Promise((resolve, reject) => {
                 const img = new Image();
                 img.src = URL.createObjectURL(file);
                 img.onload = () => {
-                    // 如果圖片本來就小，直接回傳 Blob
                     if (img.width <= maxWidth) {
                         resolve(file);
                         return;
                     }
-
-                    // 計算新尺寸
                     const scale = maxWidth / img.width;
                     const canvas = document.createElement('canvas');
                     canvas.width = maxWidth;
                     canvas.height = img.height * scale;
-                    
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    
                     canvas.toBlob((blob) => {
                         resolve(blob);
-                    }, 'image/jpeg', 0.9); // 轉成 JPG 0.9 稍微壓縮
+                    }, 'image/jpeg', 0.9);
                 };
                 img.onerror = reject;
             });
         }
 
+        // 核心事件監聽
         fileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
+            // 1. 立即切換 UI (確保使用者看到反應)
             uploadArea.classList.add('hidden');
             processingUi.classList.remove('hidden');
             processingUi.classList.add('flex');
             
+            // 顯示原圖
+            imgOriginal.src = URL.createObjectURL(file);
+            scanLine.style.display = 'block';
+
             // 進度條動畫
             let progress = 5;
             progressBar.style.width = '5%';
             const timer = setInterval(() => {
-                if(progress < 90) {
+                if(progress < 85) {
                     progress += Math.random() * 2;
                     progressBar.style.width = `${progress}%`;
                 }
             }, 200);
 
             try {
-                // 1. 預處理：縮小圖片 (避免記憶體不足)
+                // 2. 縮放圖片
                 progressText.innerText = "優化圖片尺寸...";
                 const resizedBlob = await resizeImage(file);
                 imgOriginal.src = URL.createObjectURL(resizedBlob);
-                scanLine.style.display = 'block';
 
-                // 2. 執行去背
-                progressText.innerText = "下載 AI 模型與運算中...";
+                // 3. 動態載入 AI 程式庫 (最關鍵的一步！)
+                progressText.innerText = "正在連線 AI 引擎 (請稍候)...";
                 
-                // 設定 publicPath 到 unpkg 的 data 資料夾
+                // 這裡使用動態 import，如果這步失敗，會直接跳到 catch
+                const { default: removeBackground } = await import("https://unpkg.com/@imgly/background-removal@1.0.5/dist/imgly-background-removal.mjs");
+
+                // 4. 開始去背
+                progressText.innerText = "AI 正在分析影像...";
                 const blob = await removeBackground(resizedBlob, {
                     publicPath: 'https://unpkg.com/@imgly/background-removal-data@1.0.5/dist/',
                     progress: (key, current, total) => {
-                        // 可以加入真實進度，但目前用模擬的比較平滑
+                        // 這裡可以加入真實進度，目前先用模擬動畫
                     },
-                    debug: true // 開啟除錯模式以便看 Console
+                    debug: false
                 });
 
-                // 3. 完成
+                // 5. 完成
                 const url = URL.createObjectURL(blob);
                 imgResult.src = url;
 
@@ -208,14 +212,18 @@
                 }, 500);
 
             } catch (error) {
-                console.error("AI 錯誤:", error);
+                console.error("Critical AI Error:", error);
                 clearInterval(timer);
                 
-                // 顯示真實錯誤訊息
-                let msg = error.message || error;
-                if (typeof msg === 'object') msg = JSON.stringify(msg);
+                let errorMsg = "未知錯誤";
+                if (error.message) errorMsg = error.message;
                 
-                alert(`去背失敗 😢\n錯誤代碼: ${msg}\n\n可能原因：\n1. 網路擋住了 .wasm 檔案下載\n2. 裝置顯示卡不支援\n3. 請試著重新整理網頁再試一次`);
+                // 判斷是否為載入失敗
+                if (errorMsg.includes("Failed to fetch") || errorMsg.includes("import")) {
+                    alert("⚠️ 無法載入 AI 引擎！\n\n請檢查：\n1. 網路是否正常？\n2. 您是否正在直接開啟檔案 (file://)？\n(請務必上傳到 GitHub Pages 測試)");
+                } else {
+                    alert(`❌ 去背失敗\n錯誤訊息: ${errorMsg}\n\n請嘗試換一張較小的圖片，或重新整理網頁。`);
+                }
                 
                 reset();
             }
