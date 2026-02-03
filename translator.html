@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polyglot Hub | 輕量翻譯站</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            background-color: #0f172a; 
+            color: white; 
+            font-family: 'Inter', sans-serif; 
+            background-image: radial-gradient(#1e293b 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+        
+        /* 玻璃擬態輸入框 */
+        .glass-input {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            transition: all 0.3s ease;
+        }
+        .glass-input:focus-within {
+            border-color: #3b82f6;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+            background: rgba(30, 41, 59, 0.9);
+        }
+
+        /* 按鈕特效 */
+        .action-btn {
+            transition: all 0.2s;
+        }
+        .action-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* 載入動畫 */
+        .loader {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-left-color: #3b82f6;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- 導覽列 -->
+    <header class="bg-slate-900/80 backdrop-blur border-b border-slate-700 sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <a href="index.html" class="flex items-center justify-center w-10 h-10 rounded-full bg-slate-800 text-slate-400 hover:bg-blue-600 hover:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                    </svg>
+                </a>
+                <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
+                    Polyglot Hub <span class="text-xs text-slate-500 font-normal ml-2 border border-slate-600 rounded px-2 py-0.5">免 API 版</span>
+                </h1>
+            </div>
+            
+            <!-- 外部連結工具 -->
+            <div class="flex gap-2">
+                <button onclick="openExternal('google')" class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs text-slate-300 border border-slate-700 transition-colors">
+                    <img src="https://www.google.com/favicon.ico" class="w-3 h-3 opacity-70"> Google 翻譯
+                </button>
+                <button onclick="openExternal('deepl')" class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs text-slate-300 border border-slate-700 transition-colors">
+                    <span class="w-3 h-3 bg-blue-900 rounded-sm flex items-center justify-center text-[8px] font-bold text-white">D</span> DeepL
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主介面 -->
+    <main class="flex-grow flex flex-col items-center justify-center p-4 md:p-8 max-w-6xl mx-auto w-full">
+        
+        <!-- 控制列 -->
+        <div class="w-full bg-slate-800/50 p-2 rounded-xl border border-slate-700/50 mb-4 flex flex-col md:flex-row justify-between items-center gap-4 backdrop-blur-sm">
+            
+            <!-- 語言選擇 -->
+            <div class="flex items-center gap-2 bg-slate-900 rounded-lg p-1 border border-slate-700">
+                <select id="source-lang" class="bg-transparent text-sm text-slate-200 py-1 pl-2 pr-1 outline-none cursor-pointer hover:text-white">
+                    <option value="auto">自動偵測</option>
+                    <option value="zh-TW">繁體中文</option>
+                    <option value="en">English</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                    <option value="fr">Français</option>
+                    <option value="es">Español</option>
+                    <option value="de">Deutsch</option>
+                </select>
+                
+                <button onclick="swapLanguages()" class="p-1.5 hover:bg-slate-700 rounded-md text-slate-400 hover:text-white transition-colors" title="交換語言">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                </button>
+
+                <select id="target-lang" class="bg-transparent text-sm text-blue-300 py-1 pl-1 pr-2 outline-none cursor-pointer hover:text-blue-200 font-bold">
+                    <option value="en">English</option>
+                    <option value="zh-TW" selected>繁體中文</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                    <option value="fr">Français</option>
+                    <option value="es">Español</option>
+                    <option value="de">Deutsch</option>
+                </select>
+            </div>
+
+            <!-- 翻譯按鈕 -->
+            <button onclick="translateText()" class="w-full md:w-auto px-8 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2">
+                <span id="btn-text">立即翻譯</span>
+                <div id="loading" class="loader hidden"></div>
+            </button>
+        </div>
+
+        <!-- 翻譯區塊 -->
+        <div class="w-full grid grid-cols-1 md:grid-cols-2 gap-4 h-[60vh]">
+            
+            <!-- 輸入區 -->
+            <div class="glass-input rounded-2xl p-4 flex flex-col relative group">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Source</span>
+                    <div class="flex gap-1">
+                        <button onclick="startDictation()" class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="語音輸入">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+                        </button>
+                        <button onclick="copyText('source')" class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="複製">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                        </button>
+                        <button onclick="clearText()" class="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded-lg transition-colors" title="清空">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <textarea id="source-text" class="w-full h-full bg-transparent resize-none outline-none text-lg text-white placeholder-slate-600 leading-relaxed" placeholder="在此輸入文字..." spellcheck="false"></textarea>
+                <div id="dictation-status" class="absolute bottom-4 left-4 text-xs text-red-400 hidden animate-pulse">● 正在聆聽...</div>
+                <div class="absolute bottom-4 right-4 text-xs text-slate-600 pointer-events-none group-focus-within:text-slate-400 transition-colors">
+                    <span id="char-count">0</span> chars
+                </div>
+            </div>
+
+            <!-- 輸出區 -->
+            <div class="glass-input rounded-2xl p-4 flex flex-col relative bg-slate-800/40">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-bold text-blue-400 uppercase tracking-wider">Result</span>
+                    <div class="flex gap-1">
+                        <button onclick="speakText()" class="p-2 text-slate-400 hover:text-blue-400 hover:bg-slate-700 rounded-lg transition-colors" title="朗讀結果">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                        </button>
+                        <button onclick="copyText('target')" class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors" title="複製結果">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div id="target-text" class="w-full h-full text-lg text-blue-100 leading-relaxed overflow-y-auto whitespace-pre-wrap"></div>
+                
+                <!-- 外部跳轉 (當內建翻譯不滿意時) -->
+                <div class="absolute bottom-4 left-4 right-4 flex justify-center gap-2 opacity-0 hover:opacity-100 transition-opacity">
+                    <button onclick="openExternal('google')" class="px-3 py-1 bg-slate-700/80 hover:bg-blue-600 text-xs rounded-full text-white shadow backdrop-blur border border-slate-600">
+                        在 Google 開啟
+                    </button>
+                    <button onclick="openExternal('deepl')" class="px-3 py-1 bg-slate-700/80 hover:bg-indigo-600 text-xs rounded-full text-white shadow backdrop-blur border border-slate-600">
+                        在 DeepL 開啟
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <p class="mt-4 text-xs text-slate-500 text-center">
+            Power by MyMemory API (Free Tier). 對於機密或超長文章，建議使用外部傳送門功能。
+        </p>
+
+    </main>
+
+    <script>
+        const sourceText = document.getElementById('source-text');
+        const targetText = document.getElementById('target-text');
+        const sourceLang = document.getElementById('source-lang');
+        const targetLang = document.getElementById('target-lang');
+        const charCount = document.getElementById('char-count');
+        const loading = document.getElementById('loading');
+        const btnText = document.getElementById('btn-text');
+
+        // 字數統計
+        sourceText.addEventListener('input', () => {
+            charCount.innerText = sourceText.value.length;
+        });
+
+        // 交換語言
+        function swapLanguages() {
+            const temp = sourceLang.value;
+            // 如果來源是 auto，交換後預設為英文 (假設目標是中文)
+            if (temp === 'auto') {
+                sourceLang.value = targetLang.value;
+                targetLang.value = 'en'; // 或其他邏輯
+            } else {
+                sourceLang.value = targetLang.value;
+                targetLang.value = temp;
+            }
+            
+            // 交換內容
+            const tempText = sourceText.value;
+            sourceText.value = targetText.innerText;
+            targetText.innerText = tempText;
+            charCount.innerText = sourceText.value.length;
+        }
+
+        // 清空
+        function clearText() {
+            sourceText.value = '';
+            targetText.innerText = '';
+            charCount.innerText = '0';
+        }
+
+        // 複製
+        function copyText(type) {
+            const text = type === 'source' ? sourceText.value : targetText.innerText;
+            if(!text) return;
+            navigator.clipboard.writeText(text).then(() => {
+                // 簡單的回饋
+                const originalBg = type === 'source' ? sourceText.style.background : targetText.style.background;
+                const el = type === 'source' ? sourceText : targetText.parentElement;
+                
+                // 閃爍一下
+                el.style.borderColor = '#4ade80';
+                setTimeout(() => el.style.borderColor = '', 200);
+            });
+        }
+
+        // 核心翻譯功能 (使用 MyMemory API)
+        async function translateText() {
+            const text = sourceText.value.trim();
+            if (!text) return;
+
+            // UI 狀態
+            loading.classList.remove('hidden');
+            btnText.innerText = "翻譯中...";
+            targetText.style.opacity = '0.5';
+
+            let sLang = sourceLang.value;
+            const tLang = targetLang.value;
+            
+            // 處理自動偵測 (MyMemory 支援 'Autodetect' 但傳 'auto' 有時會怪怪的，我們讓 API 自己處理)
+            let langPair = `${tLang}`; 
+            if (sLang !== 'auto') {
+                langPair = `${sLang}|${tLang}`;
+            } else {
+                langPair = `Autodetect|${tLang}`;
+            }
+
+            try {
+                // MyMemory API 限制：每次 500 字，每天免費額度。
+                // 這裡是一個公開的 GET 請求，不需要 key
+                const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langPair}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.responseStatus === 200) {
+                    targetText.innerText = data.responseData.translatedText;
+                } else {
+                    targetText.innerText = "翻譯請求過於頻繁或文字過長。\n請點擊下方按鈕使用 Google/DeepL 翻譯。";
+                }
+            } catch (error) {
+                targetText.innerText = "連線錯誤。請檢查網路或使用下方外部連結。";
+                console.error(error);
+            } finally {
+                loading.classList.add('hidden');
+                btnText.innerText = "立即翻譯";
+                targetText.style.opacity = '1';
+            }
+        }
+
+        // 外部連結跳轉
+        function openExternal(service) {
+            const text = encodeURIComponent(sourceText.value);
+            let sLang = sourceLang.value;
+            let tLang = targetLang.value;
+            
+            // 語言代碼修正 (MyMemory 與 Google/DeepL 代碼略有不同)
+            if(sLang === 'zh-TW') sLang = (service === 'deepl') ? 'ZH' : 'zh-TW';
+            if(tLang === 'zh-TW') tLang = (service === 'deepl') ? 'ZH' : 'zh-TW';
+            if(sLang === 'auto') sLang = 'auto';
+
+            let url = '';
+            if (service === 'google') {
+                url = `https://translate.google.com/?sl=${sLang}&tl=${tLang}&text=${text}&op=translate`;
+            } else if (service === 'deepl') {
+                // DeepL 不支援 auto 參數在 URL 好像比較麻煩，通常不傳就是 auto
+                if(sLang === 'auto') {
+                    url = `https://www.deepl.com/translator#auto/${tLang}/${text}`;
+                } else {
+                    url = `https://www.deepl.com/translator#${sLang}/${tLang}/${text}`;
+                }
+            }
+            window.open(url, '_blank');
+        }
+
+        // 語音輸入 (Web Speech API)
+        function startDictation() {
+            if (!('webkitSpeechRecognition' in window)) {
+                alert("您的瀏覽器不支援語音輸入 (請使用 Chrome)。");
+                return;
+            }
+
+            const recognition = new webkitSpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            
+            // 設定語言
+            let lang = sourceLang.value;
+            if(lang === 'auto') lang = 'cmn-Hant-TW'; // 自動時預設中文輸入
+            recognition.lang = lang;
+
+            recognition.onstart = () => {
+                document.getElementById('dictation-status').classList.remove('hidden');
+            };
+
+            recognition.onend = () => {
+                document.getElementById('dictation-status').classList.add('hidden');
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                sourceText.value += transcript;
+                charCount.innerText = sourceText.value.length;
+            };
+
+            recognition.start();
+        }
+
+        // 語音朗讀
+        function speakText() {
+            const text = targetText.innerText;
+            if(!text) return;
+
+            window.speechSynthesis.cancel(); // 停止目前的
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = targetLang.value;
+            window.speechSynthesis.speak(utterance);
+        }
+    </script>
+</body>
+</html>
