@@ -24,125 +24,105 @@
         }
         .tool-card:hover { 
             transform: translateY(-8px) scale(1.02); 
-            box-shadow: 0 20px 40px -10px rgba(59, 130, 246, 0.3); 
-            border-color: rgba(96, 165, 250, 0.5);
-        }
-
-        /* 文字漸層動畫 */
-        .gradient-text {
-            background: linear-gradient(to right, #60a5fa, #c084fc, #f472b6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-size: 200% auto;
-            animation: shine 5s linear infinite;
-        }
-        @keyframes shine {
-            to { background-position: 200% center; }
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+            z-index: 10;
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden">
-
-    <!-- 背景裝飾光暈 -->
-    <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
+<body class="min-h-screen p-6 md:p-12">
 
     <!-- 標題區 -->
-    <div class="text-center mb-16 relative z-10">
-        <div class="inline-block mb-4 px-4 py-1.5 rounded-full border border-slate-700 bg-slate-800/50 text-xs font-medium text-slate-400">
-            👋 Welcome to my Lab
+    <header class="max-w-6xl mx-auto mb-16 text-center">
+        <div class="inline-block p-2 px-4 rounded-full bg-slate-800/80 border border-slate-700 text-slate-400 text-sm mb-6">
+            ✨ Sandy's Personal Collection
         </div>
-        <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight mb-6">
-            Sandy's <span class="gradient-text">Web Tools</span>
+        <h1 class="text-4xl md:text-6xl font-extrabold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-rose-400 tracking-tight">
+            Web Tools Collection
         </h1>
-        <p class="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-            這是我用 AI 協作打造的個人數位工具箱。<br class="hidden md:block">
-            包含數據視覺化配色、智慧閱讀與影像處理工具。
+        <p class="text-slate-400 text-lg max-w-2xl mx-auto">
+            一系列純前端、隱私優先的實用工具。無需安裝，隨開隨用。
         </p>
-    </div>
+    </header>
 
-    <!-- 工具卡片區 (Grid Layout) -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl w-full relative z-10">
-        
-        <!-- 卡片 1: 配色工具 -->
-        <a href="color.html" class="tool-card group block bg-slate-800/60 rounded-3xl p-8 border border-slate-700/50 relative overflow-hidden">
-            <div class="absolute -right-6 -top-6 text-slate-700/20 group-hover:text-blue-500/10 transition-colors transform rotate-12 duration-500">
-                <svg class="w-40 h-40" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+    <!-- 工具卡片網格 -->
+    <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+
+        <!-- 卡片 1: AI 閱讀器 -->
+        <a href="ebook.html" class="tool-card group block bg-slate-800/60 rounded-3xl p-8 border border-slate-700/50 relative overflow-hidden">
+            <div class="absolute -right-6 -top-6 text-slate-700/20 group-hover:text-blue-500/10 transition-colors transform -rotate-12 duration-500">
+                <svg class="w-40 h-40" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l-5.5 9h11z"/><circle cx="12" cy="18" r="2.5"/></svg> <!-- Abstract Shape -->
             </div>
             <div class="relative z-10">
-                <span class="bg-blue-500/10 text-blue-400 text-xs font-bold px-3 py-1 rounded-full border border-blue-500/20 mb-4 inline-block">Design</span>
-                <h2 class="text-2xl font-bold mb-2 text-slate-100 group-hover:text-blue-400 transition-colors">DataColor Pro</h2>
-                <p class="text-slate-400 text-sm">專業數據配色、深色模式預覽與圖片吸色。</p>
+                <span class="bg-blue-500/10 text-blue-400 text-xs font-bold px-3 py-1 rounded-full mb-4 inline-block">AI Reader</span>
+                <h3 class="text-2xl font-bold mb-2 group-hover:text-blue-400 transition-colors">智慧閱讀器</h3>
+                <p class="text-slate-400 text-sm">內建 Google Gemini AI 的 PDF 閱讀器。邊讀邊問，知識無死角。</p>
             </div>
         </a>
 
-        <!-- 卡片 2: AI 閱讀器 -->
-        <a href="ebook.html" class="tool-card group block bg-slate-800/60 rounded-3xl p-8 border border-slate-700/50 relative overflow-hidden">
-            <div class="absolute -right-6 -top-6 text-slate-700/20 group-hover:text-amber-500/10 transition-colors transform -rotate-12 duration-500">
-                <svg class="w-40 h-40" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h5v2zm4-8H9V5h10v2z"/></svg>
+        <!-- 卡片 2: 色彩工作站 -->
+        <a href="color.html" class="tool-card group block bg-slate-800/60 rounded-3xl p-8 border border-slate-700/50 relative overflow-hidden">
+            <div class="absolute -right-6 -top-6 text-slate-700/20 group-hover:text-purple-500/10 transition-colors transform -rotate-12 duration-500">
+                <svg class="w-40 h-40" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8z"/></svg>
             </div>
             <div class="relative z-10">
-                <span class="bg-amber-500/10 text-amber-400 text-xs font-bold px-3 py-1 rounded-full border border-amber-500/20 mb-4 inline-block">Productivity</span>
-                <h2 class="text-2xl font-bold mb-2 text-slate-100 group-hover:text-amber-400 transition-colors">AI Smart Reader</h2>
-                <p class="text-slate-400 text-sm">隱私優先 PDF 閱讀器，整合 Gemini AI 摘要。</p>
+                <span class="bg-purple-500/10 text-purple-400 text-xs font-bold px-3 py-1 rounded-full mb-4 inline-block">Color Tool</span>
+                <h3 class="text-2xl font-bold mb-2 group-hover:text-purple-400 transition-colors">色彩工作站</h3>
+                <p class="text-slate-400 text-sm">設計師必備。圖片吸色、色票管理、對比度檢測一站完成。</p>
             </div>
         </a>
 
         <!-- 卡片 3: AI 朗讀機 -->
         <a href="tts.html" class="tool-card group block bg-slate-800/60 rounded-3xl p-8 border border-slate-700/50 relative overflow-hidden">
-            <div class="absolute -right-6 -top-6 text-slate-700/20 group-hover:text-pink-500/10 transition-colors transform rotate-12 duration-500">
-                <svg class="w-40 h-40" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+            <div class="absolute -right-6 -top-6 text-slate-700/20 group-hover:text-amber-500/10 transition-colors transform -rotate-12 duration-500">
+                <svg class="w-40 h-40" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
             </div>
             <div class="relative z-10">
-                <span class="bg-pink-500/10 text-pink-400 text-xs font-bold px-3 py-1 rounded-full border border-pink-500/20 mb-4 inline-block">Audio</span>
-                <h2 class="text-2xl font-bold mb-2 text-slate-100 group-hover:text-pink-400 transition-colors">AI 朗讀機</h2>
-                <p class="text-slate-400 text-sm">長文朗讀神器，支援台灣口音與語速調整。</p>
+                <span class="bg-amber-500/10 text-amber-400 text-xs font-bold px-3 py-1 rounded-full mb-4 inline-block">TTS Audio</span>
+                <h3 class="text-2xl font-bold mb-2 group-hover:text-amber-400 transition-colors">AI 語音朗讀</h3>
+                <p class="text-slate-400 text-sm">文字轉語音工具。支援多國語言、逐句朗讀與高亮顯示。</p>
             </div>
         </a>
 
-        <!-- 卡片 4: 畫質增強器 -->
+        <!-- 卡片 4: 畫質增強 -->
         <a href="upscale.html" class="tool-card group block bg-slate-800/60 rounded-3xl p-8 border border-slate-700/50 relative overflow-hidden">
-            <div class="absolute -right-6 -top-6 text-slate-700/20 group-hover:text-emerald-500/10 transition-colors transform rotate-12 duration-500">
+            <div class="absolute -right-6 -top-6 text-slate-700/20 group-hover:text-emerald-500/10 transition-colors transform -rotate-12 duration-500">
                 <svg class="w-40 h-40" fill="currentColor" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
             </div>
             <div class="relative z-10">
-                <span class="bg-emerald-500/10 text-emerald-400 text-xs font-bold px-3 py-1 rounded-full border border-emerald-500/20 mb-4 inline-block">Image Tool</span>
-                <h2 class="text-2xl font-bold mb-2 text-slate-100 group-hover:text-emerald-400 transition-colors">Smart Upscaler</h2>
-                <p class="text-slate-400 text-sm">前端演算法畫質增強，可調式銳化強度。</p>
+                <span class="bg-emerald-500/10 text-emerald-400 text-xs font-bold px-3 py-1 rounded-full mb-4 inline-block">AI Upscale</span>
+                <h3 class="text-2xl font-bold mb-2 group-hover:text-emerald-400 transition-colors">畫質增強</h3>
+                <p class="text-slate-400 text-sm">透過瀏覽器運算增強圖片清晰度，修復模糊照片。</p>
             </div>
         </a>
 
-        <!-- 卡片 5: 轉檔神器 -->
+        <!-- 卡片 5: 萬能轉檔 -->
         <a href="converter.html" class="tool-card group block bg-slate-800/60 rounded-3xl p-8 border border-slate-700/50 relative overflow-hidden">
             <div class="absolute -right-6 -top-6 text-slate-700/20 group-hover:text-indigo-500/10 transition-colors transform -rotate-12 duration-500">
-                <svg class="w-40 h-40" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-4 6h-4v2h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2v-2h2v-2h-2V9h4v-2zm-8 0h4v2h-2v2h2v2h-2v2h2v2H7V9zm8 4h2v2h-2v-2z"/></svg>
+                <svg class="w-40 h-40" fill="currentColor" viewBox="0 0 24 24"><path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2v9.67z"/></svg>
             </div>
             <div class="relative z-10">
-                <span class="bg-indigo-500/10 text-indigo-400 text-xs font-bold px-3 py-1 rounded-full border border-indigo-500/20 mb-4 inline-block">Converter</span>
-                <h2 class="text-2xl font-bold mb-2 text-slate-100 group-hover:text-indigo-400 transition-colors">Image Converter</h2>
-                <p class="text-slate-400 text-sm">萬能圖片轉檔。支援 JPG/PDF 雙模式輸出，極速且安全。</p>
+                <span class="bg-indigo-500/10 text-indigo-400 text-xs font-bold px-3 py-1 rounded-full mb-4 inline-block">Converter</span>
+                <h3 class="text-2xl font-bold mb-2 group-hover:text-indigo-400 transition-colors">萬能轉檔器</h3>
+                <p class="text-slate-400 text-sm">支援 WebP、HEIC 等多種圖片格式互轉，亦可輸出 PDF。</p>
             </div>
         </a>
 
-        <!-- 卡片 6: 簡報生成器 (原卡片 7) -->
-        <a href="ppt-generator.html" class="tool-card group block bg-slate-800/60 rounded-3xl p-8 border border-slate-700/50 relative overflow-hidden">
+        <!-- 卡片 6: 簡報生成器 (NEW) -->
+        <a href="ppt-generator.html" class="tool-card group block bg-slate-800/60 rounded-3xl p-8 border border-slate-700/50 relative overflow-hidden border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.1)]">
             <div class="absolute -right-6 -top-6 text-slate-700/20 group-hover:text-rose-500/10 transition-colors transform -rotate-12 duration-500">
                 <svg class="w-40 h-40" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM5 19V5h14v14H5zm2-10h10v2H7V9zm0 4h7v2H7v-2z"/></svg>
             </div>
             <div class="relative z-10">
-                <span class="bg-rose-500/10 text-rose-400 text-xs font-bold px-3 py-1 rounded-full border border-rose-500/20 mb-4 inline-block">AI Tool</span>
-                <h2 class="text-2xl font-bold mb-2 text-slate-100 group-hover:text-rose-400 transition-colors">AI 簡報生成器</h2>
-                <p class="text-slate-400 text-sm">貼上筆記，AI 自動生成 PowerPoint (.pptx) 檔案。</p>
+                <span class="bg-rose-500/10 text-rose-400 text-xs font-bold px-3 py-1 rounded-full mb-4 inline-block animate-pulse">New Tool</span>
+                <h3 class="text-2xl font-bold mb-2 group-hover:text-rose-400 transition-colors">PDF 轉 PPT</h3>
+                <p class="text-slate-400 text-sm">保留排版，一鍵將 PDF 頁面轉換為 PowerPoint 簡報。</p>
             </div>
         </a>
 
     </div>
 
-    <footer class="mt-20 text-slate-600 text-xs font-medium border-t border-slate-800 pt-8 w-full max-w-5xl flex justify-between items-center">
-        <span>&copy; 2026 Sandy's Portfolio</span>
-        <span class="flex items-center gap-2">
-            Hosted on GitHub Pages
-        </span>
+    <footer class="text-center mt-24 mb-12 text-slate-600 text-sm">
+        <p>&copy; 2026 Sandy's Web Tools. Secure & Local-First.</p>
     </footer>
 
 </body>
