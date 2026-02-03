@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Virtuoso Piano Pro | 專業合成器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            background-color: #0f172a; 
+            color: white; 
+            font-family: 'Inter', sans-serif; 
+            background-image: radial-gradient(#1e293b 1px, transparent 1px);
+            background-size: 30px 30px;
+            overflow: hidden; /* 防止手機下拉 */
+            touch-action: none;
+        }
+
+        /* 鋼琴容器外框 (Scrollable) */
+        .piano-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            display: flex;
+            justify-content: center; /* 預設置中，不夠寬時靠左 */
+            padding-bottom: 20px; /* 給捲動條留空間 */
+            /* 隱藏捲動條但保留功能 */
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none;  /* IE 10+ */
+        }
+        .piano-wrapper::-webkit-scrollbar { 
+            display: none; /* Chrome/Safari/Webkit */
+        }
+
+        /* 鋼琴本體 */
+        .piano-container {
+            display: flex;
+            position: relative;
+            padding: 10px 10px 0 10px; /* 上左右留白 */
+            background: #1e293b;
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            border-top: 4px solid #334155;
+            min-width: fit-content; /* 確保內容撐開 */
+        }
+
+        /* 白鍵 */
+        .key-white {
+            width: 50px; /* 稍微縮窄以容納更多鍵 */
+            height: 220px;
+            background: linear-gradient(to bottom, #fff 0%, #e2e8f0 100%);
+            border: 1px solid #94a3b8;
+            border-bottom: 4px solid #64748b;
+            border-radius: 0 0 6px 6px;
+            margin: 0 2px;
+            position: relative;
+            z-index: 1;
+            cursor: pointer;
+            transition: all 0.05s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 10px;
+            color: #94a3b8;
+            font-size: 10px;
+            font-weight: bold;
+            user-select: none;
+        }
+        .key-white:active, .key-white.active {
+            border-bottom-width: 1px;
+            height: 217px;
+            transform: translateY(3px);
+            background: #cbd5e1;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.2);
+            color: #3b82f6;
+        }
+
+        /* 黑鍵 */
+        .key-black {
+            width: 32px;
+            height: 130px;
+            background: linear-gradient(to bottom, #334155 0%, #0f172a 100%);
+            border: 1px solid #000;
+            border-bottom: 4px solid #000;
+            border-radius: 0 0 4px 4px;
+            position: absolute;
+            z-index: 2;
+            cursor: pointer;
+            transition: all 0.05s;
+            pointer-events: auto;
+            color: #64748b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 10px;
+            font-size: 9px;
+            user-select: none;
+        }
+        .key-black:active, .key-black.active {
+            background: #000;
+            border-bottom-width: 1px;
+            border-color: #f472b6; /* 粉紅發光 */
+            box-shadow: 0 0 15px #f472b6;
+            color: #f472b6;
+        }
+
+        /* 鍵盤標示字 */
+        .key-label {
+            margin-bottom: 4px;
+            opacity: 0.7;
+        }
+        .note-name {
+            font-size: 8px;
+            opacity: 0.5;
+        }
+
+        /* 控制面板 */
+        .control-panel {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .wave-btn.selected {
+            background-color: #ec4899; /* Pink-500 */
+            color: white;
+            border-color: #ec4899;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <!-- 頂部導覽 -->
+    <header class="bg-slate-900/80 backdrop-blur border-b border-slate-700 p-4 flex justify-between items-center z-10 shrink-0">
+        <div class="flex items-center gap-4">
+            <a href="index.html" class="flex items-center justify-center w-10 h-10 rounded-full bg-slate-800 text-slate-400 hover:bg-pink-500 hover:text-white transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                </svg>
+            </a>
+            <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-400 to-rose-500 tracking-wider">
+                Virtuoso Piano <span class="text-xs border border-pink-500/50 text-pink-400 px-1 rounded ml-1">PRO</span>
+            </h1>
+        </div>
+        <div class="text-xs text-slate-500 hidden md:block">
+            <span class="mr-2">低音: Z~M</span> | <span class="ml-2">高音: Q~P</span>
+        </div>
+    </header>
+
+    <!-- 鋼琴主體區 -->
+    <main class="flex-grow flex flex-col items-center justify-center relative w-full overflow-hidden">
+        
+        <!-- 控制面板 -->
+        <div class="control-panel p-4 rounded-xl mb-6 flex gap-6 items-center shadow-xl z-20">
+            <div>
+                <label class="block text-xs text-slate-400 mb-2 uppercase tracking-wider font-bold">Volume</label>
+                <input type="range" id="volume" min="0" max="1" step="0.1" value="0.5" class="w-32 accent-pink-500 cursor-pointer">
+            </div>
+            
+            <div class="h-8 w-px bg-slate-600"></div>
+
+            <div>
+                <label class="block text-xs text-slate-400 mb-2 uppercase tracking-wider font-bold">Tone</label>
+                <div class="flex gap-2">
+                    <button class="wave-btn selected px-3 py-1 text-xs rounded border border-slate-600 text-slate-300 hover:bg-slate-700 transition" onclick="setWave('triangle', this)">Piano</button>
+                    <button class="wave-btn px-3 py-1 text-xs rounded border border-slate-600 text-slate-300 hover:bg-slate-700 transition" onclick="setWave('square', this)">8-Bit</button>
+                    <button class="wave-btn px-3 py-1 text-xs rounded border border-slate-600 text-slate-300 hover:bg-slate-700 transition" onclick="setWave('sawtooth', this)">Synth</button>
+                    <button class="wave-btn px-3 py-1 text-xs rounded border border-slate-600 text-slate-300 hover:bg-slate-700 transition" onclick="setWave('sine', this)">Soft</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 鋼琴捲動區 -->
+        <div class="piano-wrapper" id="scroller">
+            <div class="piano-container" id="keyboard">
+                <!-- 鍵盤生成區 -->
+            </div>
+        </div>
+
+        <div class="mt-4 text-center text-slate-500 text-xs">
+            <p class="animate-pulse">← 左右滑動以彈奏更多音域 →</p>
+        </div>
+
+    </main>
+
+    <script>
+        // 擴充音符表 (C3 ~ B5) - 3個完整八度
+        const NOTES = [
+            // --- Octave 3 (Lower Row: Z X C V B N M) ---
+            { note: 'C3', freq: 130.81, key: 'z', type: 'white' },
+            { note: 'C#3', freq: 138.59, key: 's', type: 'black' },
+            { note: 'D3', freq: 146.83, key: 'x', type: 'white' },
+            { note: 'D#3', freq: 155.56, key: 'd', type: 'black' },
+            { note: 'E3', freq: 164.81, key: 'c', type: 'white' },
+            { note: 'F3', freq: 174.61, key: 'v', type: 'white' },
+            { note: 'F#3', freq: 185.00, key: 'g', type: 'black' },
+            { note: 'G3', freq: 196.00, key: 'b', type: 'white' },
+            { note: 'G#3', freq: 207.65, key: 'h', type: 'black' },
+            { note: 'A3', freq: 220.00, key: 'n', type: 'white' },
+            { note: 'A#3', freq: 233.08, key: 'j', type: 'black' },
+            { note: 'B3', freq: 246.94, key: 'm', type: 'white' },
+
+            // --- Octave 4 (Upper Row: Q W E R T Y U) ---
+            { note: 'C4', freq: 261.63, key: 'q', type: 'white' }, // Middle C
+            { note: 'C#4', freq: 277.18, key: '2', type: 'black' },
+            { note: 'D4', freq: 293.66, key: 'w', type: 'white' },
+            { note: 'D#4', freq: 311.13, key: '3', type: 'black' },
+            { note: 'E4', freq: 329.63, key: 'e', type: 'white' },
+            { note: 'F4', freq: 349.23, key: 'r', type: 'white' },
+            { note: 'F#4', freq: 369.99, key: '5', type: 'black' },
+            { note: 'G4', freq: 392.00, key: 't', type: 'white' },
+            { note: 'G#4', freq: 415.30, key: '6', type: 'black' },
+            { note: 'A4', freq: 440.00, key: 'y', type: 'white' },
+            { note: 'A#4', freq: 466.16, key: '7', type: 'black' },
+            { note: 'B4', freq: 493.88, key: 'u', type: 'white' },
+
+            // --- Octave 5 (Right Side: I O P [ ]) ---
+            { note: 'C5', freq: 523.25, key: 'i', type: 'white' },
+            { note: 'C#5', freq: 554.37, key: '9', type: 'black' },
+            { note: 'D5', freq: 587.33, key: 'o', type: 'white' },
+            { note: 'D#5', freq: 622.25, key: '0', type: 'black' },
+            { note: 'E5', freq: 659.25, key: 'p', type: 'white' },
+            { note: 'F5', freq: 698.46, key: '[', type: 'white' },
+            { note: 'F#5', freq: 739.99, key: '=', type: 'black' },
+            { note: 'G5', freq: 783.99, key: ']', type: 'white' },
+            { note: 'G#5', freq: 830.61, key: 'a', type: 'black' }, // Map back to A just for filling
+            { note: 'A5', freq: 880.00, key: ';', type: 'white' }, // A5 high
+            { note: 'A#5', freq: 932.33, key: '\'', type: 'black' },
+            { note: 'B5', freq: 987.77, key: '\\', type: 'white' }
+        ];
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const keyboard = document.getElementById('keyboard');
+        const scroller = document.getElementById('scroller');
+        let currentWave = 'triangle'; 
+        
+        // 1. 初始化鍵盤介面
+        function initPiano() {
+            keyboard.innerHTML = ''; // 清空
+            
+            // 先渲染所有白鍵以佔位
+            NOTES.filter(n => n.type === 'white').forEach(n => {
+                const k = createKeyElement(n);
+                keyboard.appendChild(k);
+            });
+
+            // 渲染黑鍵 (絕對定位)
+            // 每個白鍵寬 50px + 4px margin = 54px total width per slot
+            const WHITE_KEY_WIDTH = 54; 
+            let whiteKeyIndex = 0;
+            
+            NOTES.forEach((n) => {
+                if (n.type === 'white') {
+                    whiteKeyIndex++;
+                } else {
+                    const k = createKeyElement(n);
+                    // 黑鍵位置：在第 N 個白鍵的左邊界 (N * 54) 減去 (32/2 + 2) 左右
+                    // 微調：放到前一個白鍵與當前白鍵之間
+                    k.style.left = `${(whiteKeyIndex * WHITE_KEY_WIDTH) - 18}px`; 
+                    keyboard.appendChild(k);
+                }
+            });
+
+            // 自動捲動到中間 C4 (大約是鍵盤的中間)
+            setTimeout(() => {
+                const middleKey = document.querySelector('div[data-key="q"]');
+                if (middleKey) {
+                    const scrollPos = middleKey.offsetLeft - (window.innerWidth / 2) + 25;
+                    scroller.scrollTo({ left: scrollPos, behavior: 'smooth' });
+                }
+            }, 100);
+        }
+
+        function createKeyElement(n) {
+            const key = document.createElement('div');
+            key.className = n.type === 'white' ? 'key-white' : 'key-black';
+            key.dataset.key = n.key;
+            
+            // 顯示音名與按鍵
+            const displayKey = n.key === ';' ? ';' : n.key.toUpperCase();
+            key.innerHTML = `
+                <span class="key-label">${displayKey}</span>
+                <span class="note-name">${n.note}</span>
+            `;
+            
+            const play = (e) => {
+                if(e.type === 'touchstart') e.preventDefault();
+                playNote(n.freq);
+                key.classList.add('active');
+            };
+            const stop = (e) => {
+                key.classList.remove('active');
+            };
+
+            key.addEventListener('mousedown', play);
+            key.addEventListener('mouseup', stop);
+            key.addEventListener('mouseleave', stop);
+            key.addEventListener('touchstart', play);
+            key.addEventListener('touchend', stop);
+            
+            return key;
+        }
+
+        // 2. 聲音合成 (增加 Compressor 避免爆音)
+        const compressor = audioCtx.createDynamicsCompressor();
+        compressor.connect(audioCtx.destination);
+
+        function playNote(freq) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            osc.type = currentWave;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            
+            const volume = document.getElementById('volume').value;
+            
+            // ADSR Envelope
+            const now = audioCtx.currentTime;
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(parseFloat(volume), now + 0.01); 
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 1.2); 
+
+            osc.connect(gainNode);
+            gainNode.connect(compressor); // 連接到壓縮器
+            
+            osc.start();
+            osc.stop(now + 1.2);
+        }
+
+        // 3. 鍵盤事件
+        document.addEventListener('keydown', (e) => {
+            if (e.repeat || e.ctrlKey || e.altKey) return;
+            const keyChar = e.key.toLowerCase();
+            
+            // 處理特殊符號按鍵
+            const note = NOTES.find(n => n.key === keyChar);
+            
+            if (note) {
+                playNote(note.freq);
+                const keyEl = document.querySelector(`div[data-key="${note.key}"]`);
+                if (keyEl) {
+                    keyEl.classList.add('active');
+                    // 自動捲動到按下的鍵 (如果它在畫面外)
+                    ensureVisible(keyEl);
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            const keyChar = e.key.toLowerCase();
+            const note = NOTES.find(n => n.key === keyChar);
+            if (note) {
+                const keyEl = document.querySelector(`div[data-key="${note.key}"]`);
+                if (keyEl) keyEl.classList.remove('active');
+            }
+        });
+
+        function ensureVisible(element) {
+            const containerLeft = scroller.scrollLeft;
+            const containerRight = containerLeft + scroller.clientWidth;
+            const elLeft = element.offsetLeft;
+            const elRight = elLeft + element.clientWidth;
+
+            if (elLeft < containerLeft) {
+                scroller.scrollTo({ left: elLeft - 20, behavior: 'smooth' });
+            } else if (elRight > containerRight) {
+                scroller.scrollTo({ left: elRight - scroller.clientWidth + 20, behavior: 'smooth' });
+            }
+        }
+
+        function setWave(type, btn) {
+            currentWave = type;
+            document.querySelectorAll('.wave-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        }
+
+        initPiano();
+
+    </script>
+</body>
+</html>
