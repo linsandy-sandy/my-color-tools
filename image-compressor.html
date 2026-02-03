@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Image Compressor | 智能圖片壓縮</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 圖片壓縮核心庫 -->
+    <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
+    <!-- ZIP 打包庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- 檔案下載輔助 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            background-color: #0f172a; 
+            color: white; 
+            font-family: 'Inter', sans-serif; 
+            background-image: radial-gradient(#1e293b 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+        
+        .drop-zone {
+            transition: all 0.3s ease;
+            background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='24' ry='24' stroke='%233B82F6FF' stroke-width='2' stroke-dasharray='12%2c 12' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e");
+        }
+        .drop-zone:hover, .drop-zone.active {
+            background-color: rgba(59, 130, 246, 0.1);
+            transform: scale(1.01);
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* 比較滑桿特效 */
+        .comparison-slider {
+            position: relative;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-slate-900/80 backdrop-blur border-b border-slate-700 sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <a href="index.html" class="flex items-center justify-center w-10 h-10 rounded-full bg-slate-800 text-slate-400 hover:bg-orange-500 hover:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                    </svg>
+                </a>
+                <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-red-500 tracking-wider">
+                    Smart Compressor
+                </h1>
+            </div>
+            <div class="text-xs text-slate-400 font-mono hidden md:block">
+                Local-First Processing 🔒
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-5xl mx-auto w-full p-6">
+        
+        <!-- 上傳區 -->
+        <div id="drop-zone" class="drop-zone rounded-3xl p-12 text-center cursor-pointer mb-8 relative group">
+            <input type="file" id="fileInput" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" multiple accept="image/jpeg, image/png, image/webp, image/svg+xml">
+            <div class="pointer-events-none transition-transform group-hover:-translate-y-2 duration-300">
+                <div class="w-20 h-20 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/20 group-hover:shadow-blue-500/40 transition-shadow">
+                    <svg class="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                </div>
+                <h2 class="text-2xl font-bold text-white mb-2">拖放圖片至此 或 點擊上傳</h2>
+                <p class="text-slate-400">支援 JPG, PNG, WebP, SVG • 批次處理 • 無損/有損壓縮</p>
+            </div>
+        </div>
+
+        <!-- 設定面板 -->
+        <div class="glass-panel rounded-xl p-6 mb-8 flex flex-col md:flex-row gap-6 items-center justify-between">
+            <div class="flex flex-col gap-2 w-full md:w-1/3">
+                <label class="text-xs font-bold text-slate-400 uppercase flex justify-between">
+                    <span>壓縮強度 (Quality)</span>
+                    <span id="quality-val" class="text-blue-400">80%</span>
+                </label>
+                <input type="range" id="quality" min="0.1" max="1.0" step="0.05" value="0.8" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                <div class="flex justify-between text-[10px] text-slate-500">
+                    <span>極致壓縮 (小)</span>
+                    <span>最佳畫質 (大)</span>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-4 w-full md:w-2/3 justify-end">
+                <div class="flex items-center gap-2 bg-slate-800 px-3 py-2 rounded-lg border border-slate-700">
+                    <input type="checkbox" id="to-webp" class="w-4 h-4 text-blue-600 rounded bg-slate-700 border-slate-600 focus:ring-blue-600">
+                    <label for="to-webp" class="text-sm text-slate-300 cursor-pointer select-none">轉為 WebP <span class="text-xs text-slate-500 ml-1">(推薦)</span></label>
+                </div>
+                
+                <div class="flex items-center gap-2 bg-slate-800 px-3 py-2 rounded-lg border border-slate-700">
+                    <input type="checkbox" id="max-width-check" class="w-4 h-4 text-blue-600 rounded bg-slate-700 border-slate-600">
+                    <label for="max-width-check" class="text-sm text-slate-300 cursor-pointer select-none mr-2">限制寬度</label>
+                    <input type="number" id="max-width-val" value="1920" class="w-16 bg-slate-900 border border-slate-600 rounded px-1 text-xs text-center" disabled>
+                    <span class="text-xs text-slate-500">px</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 處理列表 -->
+        <div id="file-list" class="space-y-4">
+            <!-- 列表項目將動態生成 -->
+        </div>
+
+        <!-- 底部動作列 -->
+        <div id="action-bar" class="hidden fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur border-t border-slate-700 p-4 z-40">
+            <div class="max-w-5xl mx-auto flex justify-between items-center">
+                <div class="text-sm">
+                    <span class="text-slate-400">總計節省：</span>
+                    <span id="total-saved" class="text-green-400 font-bold text-lg">0 MB</span>
+                    <span id="total-ratio" class="text-slate-500 text-xs ml-2">(-0%)</span>
+                </div>
+                <button onclick="downloadAll()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold shadow-lg shadow-blue-500/20 transition-all active:scale-95 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                    下載全部 (ZIP)
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('file-list');
+        const actionBar = document.getElementById('action-bar');
+        
+        // Settings
+        const qualitySlider = document.getElementById('quality');
+        const qualityVal = document.getElementById('quality-val');
+        const toWebpCheck = document.getElementById('to-webp');
+        const maxWidthCheck = document.getElementById('max-width-check');
+        const maxWidthVal = document.getElementById('max-width-val');
+
+        let filesData = []; // Store file objects and results
+
+        // --- UI Interactions ---
+        qualitySlider.addEventListener('input', (e) => {
+            qualityVal.innerText = Math.round(e.target.value * 100) + '%';
+        });
+
+        maxWidthCheck.addEventListener('change', (e) => {
+            maxWidthVal.disabled = !e.target.checked;
+            if (!e.target.checked) maxWidthVal.classList.add('opacity-50');
+            else maxWidthVal.classList.remove('opacity-50');
+        });
+
+        // Drag & Drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+        
+        dropZone.addEventListener('dragover', () => dropZone.classList.add('active'));
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('active'));
+        dropZone.addEventListener('drop', handleDrop);
+        fileInput.addEventListener('change', handleFiles);
+
+        function handleDrop(e) {
+            dropZone.classList.remove('active');
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles({ target: { files: files } });
+        }
+
+        async function handleFiles(e) {
+            const files = [...e.target.files];
+            if (files.length === 0) return;
+
+            actionBar.classList.remove('hidden');
+            
+            // UI setup for new files
+            for (const file of files) {
+                const id = Math.random().toString(36).substr(2, 9);
+                const item = createListItem(id, file);
+                fileList.appendChild(item);
+                
+                // Process immediately
+                await compressImage(file, id, item);
+            }
+            updateTotalStats();
+        }
+
+        function createListItem(id, file) {
+            const div = document.createElement('div');
+            div.id = `item-${id}`;
+            div.className = "glass-panel rounded-xl p-4 flex items-center gap-4 animate-fade-in transition-all";
+            
+            // Format size
+            const sizeStr = formatBytes(file.size);
+            
+            div.innerHTML = `
+                <div class="w-16 h-16 bg-slate-800 rounded-lg overflow-hidden flex-shrink-0 relative">
+                    <img id="img-${id}" class="w-full h-full object-cover opacity-50">
+                    <div id="loader-${id}" class="absolute inset-0 flex items-center justify-center">
+                        <div class="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                </div>
+                
+                <div class="flex-grow min-w-0">
+                    <div class="flex justify-between items-baseline mb-1">
+                        <h3 class="text-sm font-bold text-white truncate pr-4" title="${file.name}">${file.name}</h3>
+                        <span id="status-${id}" class="text-xs text-yellow-400 font-mono">處理中...</span>
+                    </div>
+                    <div class="flex items-center text-xs text-slate-400 gap-2 font-mono">
+                        <span class="line-through">${sizeStr}</span>
+                        <span>➜</span>
+                        <span id="new-size-${id}" class="text-white font-bold">---</span>
+                        <span id="saving-${id}" class="text-green-400 bg-green-500/10 px-1.5 rounded ml-2 hidden"></span>
+                    </div>
+                </div>
+
+                <button onclick="downloadSingle('${id}')" id="btn-${id}" class="p-2 bg-slate-700 hover:bg-blue-600 rounded-lg text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled title="下載">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                </button>
+            `;
+            
+            // Preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                div.querySelector(`#img-${id}`).src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+
+            return div;
+        }
+
+        async function compressImage(file, id, el) {
+            try {
+                let compressedFile;
+                let outputName = file.name;
+
+                // Special handling for SVG
+                if (file.type === 'image/svg+xml') {
+                    compressedFile = await compressSVG(file);
+                } else {
+                    // Standard Image Compression
+                    const options = {
+                        maxSizeMB: 10, // No hard limit on size, control by quality
+                        maxWidthOrHeight: maxWidthCheck.checked ? parseInt(maxWidthVal.value) : undefined,
+                        useWebWorker: true,
+                        initialQuality: parseFloat(qualitySlider.value),
+                    };
+
+                    if (toWebpCheck.checked) {
+                        options.fileType = "image/webp";
+                        outputName = file.name.split('.').slice(0, -1).join('.') + ".webp";
+                    }
+
+                    compressedFile = await imageCompression(file, options);
+                }
+
+                // Store result
+                filesData.push({
+                    id: id,
+                    original: file,
+                    compressed: compressedFile,
+                    name: outputName
+                });
+
+                // Update UI
+                const originalSize = file.size;
+                const newSize = compressedFile.size;
+                const savedBytes = originalSize - newSize;
+                const savedPercent = Math.round((savedBytes / originalSize) * 100);
+
+                el.querySelector(`#loader-${id}`).classList.add('hidden');
+                el.querySelector(`#img-${id}`).classList.remove('opacity-50');
+                
+                const statusEl = el.querySelector(`#status-${id}`);
+                const sizeEl = el.querySelector(`#new-size-${id}`);
+                const savingEl = el.querySelector(`#saving-${id}`);
+                const btn = el.querySelector(`#btn-${id}`);
+
+                sizeEl.textContent = formatBytes(newSize);
+                
+                if (savedBytes > 0) {
+                    statusEl.textContent = "完成";
+                    statusEl.className = "text-xs text-green-400 font-bold";
+                    savingEl.textContent = `-${savedPercent}%`;
+                    savingEl.classList.remove('hidden');
+                } else {
+                    statusEl.textContent = "已最佳化"; // Size increased or same (rare but possible with format change)
+                    statusEl.className = "text-xs text-blue-400 font-bold";
+                }
+
+                btn.disabled = false;
+
+            } catch (error) {
+                console.error(error);
+                el.querySelector(`#status-${id}`).textContent = "失敗";
+                el.querySelector(`#status-${id}`).className = "text-xs text-red-500 font-bold";
+                el.querySelector(`#loader-${id}`).classList.add('hidden');
+            }
+        }
+
+        async function compressSVG(file) {
+            const text = await file.text();
+            // Basic SVG Minification: Remove comments, newlines, tabs, and extra spaces
+            let minified = text
+                .replace(/<!--[\s\S]*?-->/g, "") // Remove comments
+                .replace(/>\s+</g, "><") // Remove space between tags
+                .replace(/\s{2,}/g, " ") // Collapse spaces
+                .replace(/[\r\n]/g, ""); // Remove newlines
+            
+            return new Blob([minified], { type: "image/svg+xml" });
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        function updateTotalStats() {
+            let totalSaved = 0;
+            let totalOriginal = 0;
+            
+            filesData.forEach(d => {
+                totalOriginal += d.original.size;
+                totalSaved += (d.original.size - d.compressed.size);
+            });
+
+            if (totalOriginal > 0) {
+                const ratio = Math.round((totalSaved / totalOriginal) * 100);
+                document.getElementById('total-saved').textContent = formatBytes(Math.max(0, totalSaved));
+                document.getElementById('total-ratio').textContent = `(-${Math.max(0, ratio)}%)`;
+            }
+        }
+
+        window.downloadSingle = function(id) {
+            const data = filesData.find(d => d.id === id);
+            if (data) {
+                saveAs(data.compressed, data.name);
+            }
+        };
+
+        window.downloadAll = function() {
+            const zip = new JSZip();
+            const imgFolder = zip.folder("compressed_images");
+            
+            filesData.forEach(d => {
+                imgFolder.file(d.name, d.compressed);
+            });
+
+            zip.generateAsync({type:"blob"}).then(function(content) {
+                saveAs(content, "smart_compressed_images.zip");
+            });
+        };
+
+    </script>
+</body>
+</html>
