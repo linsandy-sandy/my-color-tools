@@ -334,9 +334,9 @@
 
             // 2. 渲染黑鍵 (絕對定位)
             let whiteKeyIndex = 0;
-            // 偵測螢幕寬度來決定鍵寬
+            // 偵測螢幕寬度來決定鍵寬 (修正：手機版白鍵42+4=46px)
             const isMobile = window.innerWidth <= 768;
-            const WHITE_WIDTH = isMobile ? 44 : 54; // 42px width + 2px margin
+            const WHITE_WIDTH = isMobile ? 46 : 54; // 修正後的總寬度
             const BLACK_OFFSET = isMobile ? 13 : 18; 
 
             NOTES.forEach((n) => {
