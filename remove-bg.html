@@ -5,35 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Magic Eraser | AI 智慧去背</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 字體 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: white; }
-        
-        /* 透明背景網格 (棋盤格) */
         .checkerboard {
             background-color: #1e293b;
-            background-image:
-                linear-gradient(45deg, #334155 25%, transparent 25%),
-                linear-gradient(-45deg, #334155 25%, transparent 25%),
-                linear-gradient(45deg, transparent 75%, #334155 75%),
-                linear-gradient(-45deg, transparent 75%, #334155 75%);
+            background-image: linear-gradient(45deg, #334155 25%, transparent 25%), linear-gradient(-45deg, #334155 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #334155 75%), linear-gradient(-45deg, transparent 75%, #334155 75%);
             background-size: 20px 20px;
             background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
         }
-
-        /* 掃描線動畫 */
         .scan-line {
             position: absolute; top: 0; left: 0; width: 100%; height: 4px;
-            background: #3b82f6; box-shadow: 0 0 10px #3b82f6;
-            animation: scan 2s linear infinite;
-            display: none;
+            background: #22d3ee; box-shadow: 0 0 10px #22d3ee;
+            animation: scan 2s linear infinite; display: none;
         }
         @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
-
-        /* 載入轉圈 */
         .loader {
-            border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6;
+            border: 4px solid #f3f3f3; border-top: 4px solid #22d3ee;
             border-radius: 50%; width: 40px; height: 40px;
             animation: spin 1s linear infinite;
         }
@@ -42,63 +30,48 @@
 </head>
 <body class="flex flex-col min-h-screen">
 
-    <!-- 導覽列 -->
     <nav class="border-b border-slate-700 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
         <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
             <div class="flex items-center gap-3">
-                <a href="index.html" class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium border border-slate-700 px-3 py-1.5 rounded-lg bg-slate-800">
-                    <span>🏠</span>
-                </a>
-                <span class="font-bold text-lg text-cyan-400 tracking-wide">Magic Eraser</span>
+                <a href="index.html" class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm font-medium border border-slate-700 px-3 py-1.5 rounded-lg bg-slate-800"><span>🏠</span></a>
+                <span class="font-bold text-lg text-cyan-400 tracking-wide">Magic Eraser v2</span>
             </div>
-            <div class="text-xs text-slate-500 hidden sm:block">On-Device AI Removal</div>
+            <div class="text-xs text-slate-500 hidden sm:block">Stable Edition</div>
         </div>
     </nav>
 
-    <!-- 主畫面 -->
     <main class="flex-grow flex flex-col items-center p-6 w-full max-w-6xl mx-auto">
-        
-        <!-- 標題 -->
         <div class="text-center mb-10">
             <h1 class="text-3xl md:text-4xl font-bold mb-4">AI 一鍵去背神器</h1>
-            <p class="text-slate-400">瀏覽器本地運算，免上傳、免個資，100% 免費。<br><span class="text-xs text-slate-500">(首次使用需下載 AI 模型，請稍候約 10-30 秒)</span></p>
+            <p class="text-slate-400">自動優化尺寸，提升成功率。<br><span class="text-xs text-slate-500">(瀏覽器本地運算，首次需載入模型)</span></p>
         </div>
 
-        <!-- 1. 上傳區 -->
         <div id="upload-area" class="w-full max-w-xl text-center py-12 px-6 border-2 border-dashed border-slate-600 rounded-2xl hover:border-cyan-500 hover:bg-slate-800/50 transition-all cursor-pointer group mb-8" onclick="document.getElementById('fileInput').click()">
             <div class="mb-4 text-slate-500 group-hover:text-cyan-400 transition-colors">
                 <svg class="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
             </div>
-            <h3 class="text-xl font-bold text-white mb-2">上傳圖片去背</h3>
-            <p class="text-slate-400 text-sm">支援 JPG, PNG, WEBP (建議清晰主體)</p>
+            <h3 class="text-xl font-bold text-white mb-2">上傳圖片</h3>
+            <p class="text-slate-400 text-sm">JPG, PNG, WEBP (自動壓縮至 1200px 以防當機)</p>
             <input type="file" id="fileInput" accept="image/*" class="hidden">
         </div>
 
-        <!-- 2. 處理中畫面 -->
         <div id="processing-ui" class="hidden w-full max-w-xl flex-col items-center text-center p-8 bg-slate-800 rounded-2xl border border-slate-700">
             <div class="loader mb-4"></div>
-            <h3 class="text-xl font-bold text-white mb-2">AI 正在施法中...</h3>
-            <p class="text-slate-400 text-sm" id="progress-text">準備載入 AI 模型...</p>
+            <h3 class="text-xl font-bold text-white mb-2">AI 運算中...</h3>
+            <p class="text-slate-400 text-sm" id="progress-text">準備中...</p>
             <div class="w-full bg-slate-700 h-2 mt-4 rounded-full overflow-hidden">
                 <div id="progress-bar" class="bg-cyan-500 h-full w-0 transition-all duration-500"></div>
             </div>
         </div>
 
-        <!-- 3. 結果比對區 -->
         <div id="result-area" class="hidden w-full grid grid-cols-1 md:grid-cols-2 gap-8">
-            
-            <!-- 原圖 -->
             <div class="flex flex-col gap-2">
-                <div class="flex justify-between items-center">
-                    <span class="text-sm font-bold text-slate-400">原始圖片</span>
-                </div>
+                <span class="text-sm font-bold text-slate-400">原始圖片 (已優化)</span>
                 <div class="relative rounded-xl overflow-hidden border border-slate-700 bg-slate-800">
                     <img id="img-original" class="w-full h-auto object-contain max-h-[500px]">
                     <div id="scan-line" class="scan-line"></div>
                 </div>
             </div>
-
-            <!-- 去背結果 -->
             <div class="flex flex-col gap-2">
                 <div class="flex justify-between items-center">
                     <span class="text-sm font-bold text-cyan-400">去背結果 ✨</span>
@@ -108,20 +81,19 @@
                     <img id="img-result" class="w-full h-auto object-contain max-h-[500px]">
                 </div>
             </div>
-
         </div>
 
-        <!-- 重新開始按鈕 -->
-        <button id="btn-reset" onclick="reset()" class="hidden mt-8 text-slate-400 hover:text-white underline">處理另一張圖片</button>
-
+        <button id="btn-reset" onclick="reset()" class="hidden mt-8 text-slate-400 hover:text-white underline">處理另一張</button>
     </main>
 
     <footer class="py-6 text-center text-slate-600 text-xs border-t border-slate-800">
-        &copy; 2026 Sandy's Web Tools. Powered by @imgly/background-removal
+        &copy; 2026 Sandy's Web Tools. Powered by imgly.
     </footer>
 
-    <!-- 使用 type="module" 但內部邏輯改為動態載入，避免一開始就卡住 -->
     <script type="module">
+        // 使用 unpkg CDN，版本對齊 1.0.5
+        import removeBackground from "https://unpkg.com/@imgly/background-removal@1.0.5/dist/imgly-background-removal.mjs";
+
         const fileInput = document.getElementById('fileInput');
         const uploadArea = document.getElementById('upload-area');
         const processingUi = document.getElementById('processing-ui');
@@ -133,7 +105,6 @@
         const progressBar = document.getElementById('progress-bar');
         const scanLine = document.getElementById('scan-line');
 
-        // 將 reset 與 download 綁定到 window，確保 HTML 可以呼叫
         window.reset = function() {
             uploadArea.classList.remove('hidden');
             resultArea.classList.add('hidden');
@@ -148,54 +119,78 @@
         window.downloadImage = function() {
             if (!imgResult.src) return;
             const link = document.createElement('a');
-            link.download = 'removed-bg-magic.png';
+            link.download = 'removed-bg.png';
             link.href = imgResult.src;
             link.click();
         }
 
-        // 監聽檔案變更
+        // 圖片縮放工具 (關鍵修復：防止大圖當機)
+        async function resizeImage(file, maxWidth = 1200) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.src = URL.createObjectURL(file);
+                img.onload = () => {
+                    // 如果圖片本來就小，直接回傳 Blob
+                    if (img.width <= maxWidth) {
+                        resolve(file);
+                        return;
+                    }
+
+                    // 計算新尺寸
+                    const scale = maxWidth / img.width;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = maxWidth;
+                    canvas.height = img.height * scale;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    canvas.toBlob((blob) => {
+                        resolve(blob);
+                    }, 'image/jpeg', 0.9); // 轉成 JPG 0.9 稍微壓縮
+                };
+                img.onerror = reject;
+            });
+        }
+
         fileInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
-            // 1. 立即顯示 UI 反饋 (避免使用者覺得當機)
             uploadArea.classList.add('hidden');
             processingUi.classList.remove('hidden');
             processingUi.classList.add('flex');
             
-            // 顯示原圖預覽
-            const originalUrl = URL.createObjectURL(file);
-            imgOriginal.src = originalUrl;
-            scanLine.style.display = 'block'; // 啟動掃描動畫
-
-            // 2. 模擬進度條 (讓使用者知道程式有在跑)
+            // 進度條動畫
             let progress = 5;
             progressBar.style.width = '5%';
             const timer = setInterval(() => {
-                if(progress < 85) {
-                    progress += Math.random() * 3;
+                if(progress < 90) {
+                    progress += Math.random() * 2;
                     progressBar.style.width = `${progress}%`;
-                    if(progress > 20 && progress < 50) progressText.innerText = "正在連線下載 AI 模型...";
-                    if(progress > 50) progressText.innerText = "正在進行物件分割...";
                 }
-            }, 300);
+            }, 200);
 
             try {
-                // 3. 動態載入 AI 模組 (這一步最關鍵，把載入延後到使用者上傳後)
-                // 這樣可以避免網頁一開啟就卡住，且如果有錯可以這裡捕捉
-                const { default: removeBackground } = await import("https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.0.4/+esm");
+                // 1. 預處理：縮小圖片 (避免記憶體不足)
+                progressText.innerText = "優化圖片尺寸...";
+                const resizedBlob = await resizeImage(file);
+                imgOriginal.src = URL.createObjectURL(resizedBlob);
+                scanLine.style.display = 'block';
 
-                // 4. 執行去背
-                // publicPath 指定模型下載的 CDN 來源，確保速度
-                const blob = await removeBackground(file, {
+                // 2. 執行去背
+                progressText.innerText = "下載 AI 模型與運算中...";
+                
+                // 設定 publicPath 到 unpkg 的 data 資料夾
+                const blob = await removeBackground(resizedBlob, {
+                    publicPath: 'https://unpkg.com/@imgly/background-removal-data@1.0.5/dist/',
                     progress: (key, current, total) => {
-                        // 這裡可以接收真實進度，但為了 UI 平滑，我們暫時用模擬動畫輔助
-                        // console.log(`Downloading ${key}: ${current} of ${total}`);
+                        // 可以加入真實進度，但目前用模擬的比較平滑
                     },
-                    publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@1.0.3/dist/' 
+                    debug: true // 開啟除錯模式以便看 Console
                 });
 
-                // 5. 處理完成
+                // 3. 完成
                 const url = URL.createObjectURL(blob);
                 imgResult.src = url;
 
@@ -203,7 +198,6 @@
                 progressBar.style.width = "100%";
                 progressText.innerText = "處理完成！";
                 
-                // 延遲一點點再顯示結果，讓使用者看到 100%
                 setTimeout(() => {
                     processingUi.classList.add('hidden');
                     processingUi.classList.remove('flex');
@@ -211,21 +205,18 @@
                     resultArea.classList.add('grid');
                     btnReset.classList.remove('hidden');
                     scanLine.style.display = 'none'; 
-                }, 600);
+                }, 500);
 
             } catch (error) {
-                console.error("AI 處理失敗:", error);
+                console.error("AI 錯誤:", error);
                 clearInterval(timer);
                 
-                // 錯誤處理提示
-                let errorMsg = "去背失敗，請重試。";
-                if (window.location.protocol === 'file:') {
-                    errorMsg = "⚠️ 偵測到您直接開啟檔案。\n請將網頁上傳至 GitHub Pages 後再測試，AI 模型無法在本地檔案模式下下載。";
-                } else if (!navigator.onLine) {
-                    errorMsg = "⚠️ 網路連線中斷，無法下載 AI 模型。";
-                }
+                // 顯示真實錯誤訊息
+                let msg = error.message || error;
+                if (typeof msg === 'object') msg = JSON.stringify(msg);
                 
-                alert(errorMsg);
+                alert(`去背失敗 😢\n錯誤代碼: ${msg}\n\n可能原因：\n1. 網路擋住了 .wasm 檔案下載\n2. 裝置顯示卡不支援\n3. 請試著重新整理網頁再試一次`);
+                
                 reset();
             }
         });
