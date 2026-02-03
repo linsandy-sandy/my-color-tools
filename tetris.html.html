@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Tetris | 極致霓虹版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Audiowide&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-pink: #ff00ff;
+            --neon-green: #00ff9f;
+            --neon-yellow: #fcee0a;
+            --bg-dark: #050510;
+        }
+
+        body { 
+            background-color: var(--bg-dark); 
+            color: white; 
+            font-family: 'Rajdhani', sans-serif; 
+            overflow: hidden; /* 禁止捲動 */
+            touch-action: none; /* 禁止觸控預設行為 */
+            background: radial-gradient(circle at center, #1a1a2e 0%, #050510 100%);
+        }
+        
+        .title-font { font-family: 'Audiowide', cursive; }
+
+        /* CRT 螢幕掃描線特效 */
+        .crt-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.25) 50%
+            ), linear-gradient(
+                90deg, 
+                rgba(255, 0, 0, 0.06), 
+                rgba(0, 255, 0, 0.02), 
+                rgba(0, 0, 255, 0.06)
+            );
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+            z-index: 50;
+            opacity: 0.6;
+        }
+
+        /* 遊戲邊框發光 */
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.1), inset 0 0 20px rgba(0, 243, 255, 0.1);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        /* UI 面板玻璃質感 */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 霓虹文字動畫 */
+        .neon-pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { text-shadow: 0 0 5px var(--neon-blue), 0 0 10px var(--neon-blue); }
+            50% { text-shadow: 0 0 2px var(--neon-blue), 0 0 5px var(--neon-blue); }
+        }
+
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s;
+        }
+        .btn-glass:active {
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 15px var(--neon-blue);
+            border-color: var(--neon-blue);
+        }
+
+        canvas { image-rendering: pixelated; }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col">
+
+    <div class="crt-overlay"></div>
+
+    <!-- 頂部資訊 -->
+    <header class="flex justify-between items-center p-4 px-6 z-20 bg-gradient-to-b from-black/80 to-transparent">
+        <div class="flex items-center gap-4">
+            <a href="index.html" class="glass-panel w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 transition text-cyan-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>
+            </a>
+            <div>
+                <h1 class="text-2xl title-font text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500 neon-pulse tracking-wider">NEON TETRIS</h1>
+            </div>
+        </div>
+        <div class="flex gap-3">
+             <button id="btn-sound" class="glass-panel w-10 h-10 rounded-full flex items-center justify-center text-cyan-300 hover:shadow-[0_0_10px_cyan]" onclick="toggleSound()">🔊</button>
+             <button id="btn-pause" class="glass-panel px-4 h-10 rounded-full text-xs font-bold tracking-widest text-white hover:bg-white/10" onclick="togglePause()">PAUSE</button>
+        </div>
+    </header>
+
+    <!-- 遊戲主體 -->
+    <main class="flex-grow flex items-center justify-center gap-8 p-4 z-10 relative">
+        
+        <!-- 左側儀表板 -->
+        <div class="hidden md:flex flex-col gap-4 w-40">
+            <div class="glass-panel p-4 rounded-xl text-center">
+                <div class="text-xs text-gray-400 tracking-widest mb-1">SCORE</div>
+                <div id="score" class="text-3xl font-bold text-cyan-400 title-font drop-shadow-[0_0_5px_rgba(34,211,238,0.8)]">0</div>
+            </div>
+            <div class="glass-panel p-4 rounded-xl text-center">
+                <div class="text-xs text-gray-400 tracking-widest mb-1">LEVEL</div>
+                <div id="level" class="text-2xl font-bold text-yellow-400 title-font">1</div>
+            </div>
+             <div class="glass-panel p-4 rounded-xl text-center">
+                <div class="text-xs text-gray-400 tracking-widest mb-1">LINES</div>
+                <div id="lines" class="text-2xl font-bold text-pink-400 title-font">0</div>
+            </div>
+        </div>
+
+        <!-- 中央遊戲區 -->
+        <div id="game-container" class="relative rounded-lg overflow-hidden shadow-2xl">
+            <canvas id="game-canvas" width="300" height="600" class="block"></canvas>
+            
+            <!-- 粒子特效層 -->
+            <canvas id="fx-canvas" width="300" height="600" class="absolute top-0 left-0 pointer-events-none mix-blend-screen"></canvas>
+
+            <!-- 遮罩：開始 -->
+            <div id="start-modal" class="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-30">
+                <h2 class="title-font text-4xl text-cyan-400 mb-2 neon-pulse">READY?</h2>
+                <p class="text-gray-400 text-sm mb-8 tracking-widest">PRESS START TO PLAY</p>
+                <button onclick="startGame()" class="px-8 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xl rounded clip-path-polygon shadow-[0_0_20px_cyan] transition-all transform hover:scale-105">
+                    START GAME
+                </button>
+            </div>
+
+            <!-- 遮罩：結束 -->
+            <div id="game-over-modal" class="hidden absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center z-30">
+                <h2 class="title-font text-4xl text-red-500 mb-4 drop-shadow-[0_0_10px_red]">GAME OVER</h2>
+                <div class="text-center mb-8">
+                    <p class="text-gray-400 text-xs tracking-widest">FINAL SCORE</p>
+                    <p id="final-score" class="text-3xl text-white font-bold title-font">0</p>
+                </div>
+                <button onclick="startGame()" class="px-8 py-3 border border-cyan-500 text-cyan-500 hover:bg-cyan-500 hover:text-black font-bold rounded transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+                    RETRY
+                </button>
+            </div>
+        </div>
+
+        <!-- 右側預覽 -->
+        <div class="hidden md:flex flex-col gap-4 w-40 h-full justify-start">
+            <div class="glass-panel p-4 rounded-xl flex flex-col items-center min-h-[120px]">
+                <div class="text-xs text-gray-400 tracking-widest mb-2">NEXT</div>
+                <canvas id="next-canvas" width="80" height="80"></canvas>
+            </div>
+             <div class="glass-panel p-4 rounded-xl text-left">
+                <div class="text-xs text-gray-400 tracking-widest mb-2 border-b border-gray-700 pb-1">CONTROLS</div>
+                <div class="text-[10px] text-gray-300 space-y-1 font-mono">
+                    <div class="flex justify-between"><span>MOVE</span> <span class="text-cyan-400">← →</span></div>
+                    <div class="flex justify-between"><span>ROTATE</span> <span class="text-cyan-400">↑</span></div>
+                    <div class="flex justify-between"><span>SOFT</span> <span class="text-cyan-400">↓</span></div>
+                    <div class="flex justify-between"><span>HARD</span> <span class="text-cyan-400">SPACE</span></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 手機版頂部資訊 (分數) -->
+        <div class="md:hidden absolute top-0 left-0 w-full flex justify-between px-6 pt-20 pointer-events-none">
+             <div><span class="text-[10px] text-gray-400">SCORE</span><br><span id="mobile-score" class="text-xl text-cyan-400 font-bold title-font">0</span></div>
+             <div class="text-right"><span class="text-[10px] text-gray-400">NEXT</span><br><canvas id="mobile-next-canvas" width="40" height="40" class="inline-block"></canvas></div>
+        </div>
+
+    </main>
+
+    <!-- 手機版控制區 -->
+    <div class="md:hidden z-30 pb-8 px-6 h-48 shrink-0 grid grid-cols-3 gap-3">
+        <!-- 旋轉 (左上) -->
+         <div class="col-start-1 row-start-1 flex items-end justify-center">
+             <button id="btn-rotate" class="btn-glass w-16 h-16 rounded-full flex items-center justify-center text-2xl text-purple-300">↻</button>
+         </div>
+         <!-- 硬降 (中上) -->
+         <div class="col-start-2 row-start-1 flex items-end justify-center">
+             <button id="btn-hard" class="btn-glass w-14 h-14 rounded-full flex items-center justify-center text-lg text-red-300 border-red-500/30">⤓</button>
+         </div>
+         <!-- 下 (右上 - 軟降) -->
+         <div class="col-start-3 row-start-1 flex items-end justify-center">
+             <button id="btn-down" class="btn-glass w-16 h-16 rounded-full flex items-center justify-center text-2xl text-blue-300">↓</button>
+         </div>
+         
+         <!-- 左 -->
+         <div class="col-start-1 row-start-2 flex justify-center">
+             <button id="btn-left" class="btn-glass w-20 h-16 rounded-2xl flex items-center justify-center text-3xl text-cyan-300">←</button>
+         </div>
+         <!-- 下 (預留) -->
+         <div class="col-start-2 row-start-2"></div>
+         <!-- 右 -->
+         <div class="col-start-3 row-start-2 flex justify-center">
+             <button id="btn-right" class="btn-glass w-20 h-16 rounded-2xl flex items-center justify-center text-3xl text-cyan-300">→</button>
+         </div>
+    </div>
+
+    <script>
+        // --- 設定與常數 ---
+        const COLS = 10, ROWS = 20, BLOCK_SIZE = 30;
+        const SHAPES = [
+            [],
+            [[1, 1, 0], [0, 1, 1], [0, 0, 0]], // Z - Red
+            [[0, 2, 0], [0, 2, 0], [0, 2, 2]], // L - Orange
+            [[3, 3], [3, 3]],                   // O - Yellow
+            [[0, 4, 4], [4, 4, 0], [0, 0, 0]], // S - Green
+            [[0, 5, 0, 0], [0, 5, 0, 0], [0, 5, 0, 0], [0, 5, 0, 0]], // I - Cyan
+            [[0, 6, 0], [0, 6, 0], [6, 6, 0]], // J - Blue
+            [[0, 7, 0], [7, 7, 7], [0, 0, 0]]  // T - Purple
+        ];
+        
+        // 霓虹配色盤 (Hex + Shadow Color)
+        const PALETTE = [
+            null,
+            { fill: '#ff0055', glow: '#ff0055' }, // Z
+            { fill: '#ff7700', glow: '#ff7700' }, // L
+            { fill: '#ffdd00', glow: '#ffdd00' }, // O
+            { fill: '#00ff66', glow: '#00ff66' }, // S
+            { fill: '#00eeff', glow: '#00eeff' }, // I
+            { fill: '#0055ff', glow: '#0055ff' }, // J
+            { fill: '#aa00ff', glow: '#aa00ff' }  // T
+        ];
+
+        // Canvas Setup
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const fxCanvas = document.getElementById('fx-canvas');
+        const fxCtx = fxCanvas.getContext('2d');
+        const nextCanvas = document.getElementById('next-canvas');
+        const nextCtx = nextCanvas.getContext('2d');
+        const mobileNextCanvas = document.getElementById('mobile-next-canvas');
+        const mobileNextCtx = mobileNextCanvas ? mobileNextCanvas.getContext('2d') : null;
+
+        // Game State
+        let grid = createGrid();
+        let score = 0, lines = 0, level = 1;
+        let dropInterval = 1000, lastTime = 0, dropCounter = 0;
+        let isPaused = false, isGameOver = false, isPlaying = false;
+        let soundEnabled = true;
+        let particles = [];
+
+        let player = { pos: {x: 0, y: 0}, matrix: null, colorIndex: 0 };
+        let nextPiece = null;
+
+        // --- 音效系統 (Web Audio API) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playTone(freq, type, duration) {
+            if (!soundEnabled || audioCtx.state === 'suspended') audioCtx.resume();
+            if (!soundEnabled) return;
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        const SFX = {
+            move: () => playTone(300, 'triangle', 0.05),
+            rotate: () => playTone(400, 'sine', 0.1),
+            drop: () => playTone(150, 'sawtooth', 0.1),
+            clear: () => {
+                playTone(600, 'square', 0.1);
+                setTimeout(() => playTone(800, 'square', 0.2), 100);
+            },
+            gameover: () => {
+                playTone(200, 'sawtooth', 0.5);
+                setTimeout(() => playTone(150, 'sawtooth', 0.5), 400);
+            }
+        };
+
+        // --- 粒子系統 ---
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x; this.y = y;
+                this.vx = (Math.random() - 0.5) * 8;
+                this.vy = (Math.random() - 0.5) * 8;
+                this.life = 1.0;
+                this.color = color;
+                this.size = Math.random() * 4 + 2;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.2; // gravity
+                this.life -= 0.03;
+            }
+            draw(ctx) {
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        function spawnParticles(x, y, color, count = 10) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        // --- 繪圖邏輯 ---
+
+        function drawNeonBlock(ctx, x, y, size, colorObj, isGhost = false) {
+            const posX = x * size;
+            const posY = y * size;
+            
+            if (isGhost) {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(posX + 1, posY + 1, size - 2, size - 2);
+                return;
+            }
+
+            // Glow effect
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = colorObj.glow;
+            
+            // Block body
+            ctx.fillStyle = colorObj.fill; // Make it slightly transparent? No, solid for retro feel
+            // Gradient fill
+            const grad = ctx.createLinearGradient(posX, posY, posX + size, posY + size);
+            grad.addColorStop(0, colorObj.fill);
+            grad.addColorStop(1, '#000'); // darken corner
+            // ctx.fillStyle = grad;
+            
+            // Inner style (Glassy)
+            ctx.fillStyle = 'rgba(0,0,0,0.3)'; // base dark
+            ctx.fillRect(posX + 1, posY + 1, size - 2, size - 2);
+            
+            ctx.fillStyle = colorObj.fill;
+            ctx.globalAlpha = 0.8;
+            ctx.fillRect(posX + 2, posY + 2, size - 4, size - 4);
+            ctx.globalAlpha = 1.0;
+
+            // Highlight (Top Left)
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.fillRect(posX + 2, posY + 2, size - 4, 4);
+            ctx.fillRect(posX + 2, posY + 2, 4, size - 4);
+
+            ctx.shadowBlur = 0; // Reset
+        }
+
+        function draw() {
+            // Background
+            ctx.fillStyle = 'rgba(5, 5, 16, 1)'; // Clear with opaque color to remove trails
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Grid Lines (Subtle)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= COLS; i++) {
+                ctx.beginPath(); ctx.moveTo(i * BLOCK_SIZE, 0); ctx.lineTo(i * BLOCK_SIZE, canvas.height); ctx.stroke();
+            }
+            for (let i = 0; i <= ROWS; i++) {
+                ctx.beginPath(); ctx.moveTo(0, i * BLOCK_SIZE); ctx.lineTo(canvas.width, i * BLOCK_SIZE); ctx.stroke();
+            }
+
+            // 1. Draw Board
+            grid.forEach((row, y) => {
+                row.forEach((val, x) => {
+                    if (val !== 0) drawNeonBlock(ctx, x, y, BLOCK_SIZE, PALETTE[val]);
+                });
+            });
+
+            // 2. Draw Ghost Piece
+            if (player.matrix) {
+                const ghostY = getGhostY();
+                player.matrix.forEach((row, y) => {
+                    row.forEach((val, x) => {
+                        if (val !== 0) drawNeonBlock(ctx, x + player.pos.x, y + ghostY, BLOCK_SIZE, PALETTE[val], true);
+                    });
+                });
+            }
+
+            // 3. Draw Active Piece
+            if (player.matrix) {
+                player.matrix.forEach((row, y) => {
+                    row.forEach((val, x) => {
+                        if (val !== 0) drawNeonBlock(ctx, x + player.pos.x, y + player.pos.y, BLOCK_SIZE, PALETTE[val]);
+                    });
+                });
+            }
+
+            // 4. Draw Particles (on FX Canvas)
+            fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.update();
+                p.draw(fxCtx);
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+        }
+
+        function drawPreview(ctxObj, cvs) {
+            if (!ctxObj) return;
+            ctxObj.clearRect(0, 0, cvs.width, cvs.height);
+            if (!nextPiece) return;
+
+            const boxSize = nextPiece.matrix.length;
+            const size = 20; // Smaller block size for preview
+            const offsetX = (cvs.width - boxSize * size) / 2;
+            const offsetY = (cvs.height - boxSize * size) / 2;
+
+            nextPiece.matrix.forEach((row, y) => {
+                row.forEach((val, x) => {
+                    if (val !== 0) {
+                        ctxObj.fillStyle = PALETTE[val].fill;
+                        ctxObj.shadowBlur = 10;
+                        ctxObj.shadowColor = PALETTE[val].glow;
+                        ctxObj.fillRect(offsetX + x * size, offsetY + y * size, size - 2, size - 2);
+                        ctxObj.shadowBlur = 0;
+                    }
+                });
+            });
+        }
+
+        // --- 遊戲邏輯 ---
+
+        function createGrid() { return Array.from({length: ROWS}, () => Array(COLS).fill(0)); }
+        
+        function createPiece() {
+            const index = (Math.random() * 7 | 0) + 1;
+            return { matrix: SHAPES[index], colorIndex: index };
+        }
+
+        function getGhostY() {
+            let y = player.pos.y;
+            while (!collide(grid, { pos: {x: player.pos.x, y: y + 1}, matrix: player.matrix })) {
+                y++;
+            }
+            return y;
+        }
+
+        function collide(grid, player) {
+            const m = player.matrix, o = player.pos;
+            for (let y = 0; y < m.length; ++y) {
+                for (let x = 0; x < m[y].length; ++x) {
+                    if (m[y][x] !== 0 && (grid[y + o.y] && grid[y + o.y][x + o.x]) !== 0) return true;
+                }
+            }
+            return false;
+        }
+
+        function merge(grid, player) {
+            player.matrix.forEach((row, y) => {
+                row.forEach((val, x) => {
+                    if (val !== 0) grid[y + player.pos.y][x + player.pos.x] = val;
+                });
+            });
+        }
+
+        function rotate(matrix, dir) {
+            for (let y = 0; y < matrix.length; ++y) {
+                for (let x = 0; x < y; ++x) {
+                    [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+                }
+            }
+            if (dir > 0) matrix.forEach(row => row.reverse());
+            else matrix.reverse();
+        }
+
+        function playerRotate(dir) {
+            const pos = player.pos.x;
+            let offset = 1;
+            rotate(player.matrix, dir);
+            while (collide(grid, player)) {
+                player.pos.x += offset;
+                offset = -(offset + (offset > 0 ? 1 : -1));
+                if (offset > player.matrix[0].length) {
+                    rotate(player.matrix, -dir);
+                    player.pos.x = pos;
+                    return;
+                }
+            }
+            SFX.rotate();
+        }
+
+        function playerReset() {
+            if (nextPiece === null) nextPiece = createPiece();
+            
+            const piece = nextPiece;
+            player.matrix = piece.matrix;
+            player.colorIndex = piece.colorIndex;
+            player.pos.y = 0;
+            player.pos.x = (COLS / 2 | 0) - (player.matrix[0].length / 2 | 0);
+            
+            nextPiece = createPiece();
+            drawPreview(nextCtx, nextCanvas);
+            drawPreview(mobileNextCtx, mobileNextCanvas);
+
+            if (collide(grid, player)) {
+                isGameOver = true;
+                isPlaying = false;
+                SFX.gameover();
+                document.getElementById('final-score').innerText = score;
+                document.getElementById('game-over-modal').style.display = 'flex';
+            }
+        }
+
+        function arenaSweep() {
+            let rowCount = 0;
+            outer: for (let y = grid.length - 1; y > 0; --y) {
+                for (let x = 0; x < grid[y].length; ++x) {
+                    if (grid[y][x] === 0) continue outer;
+                }
+                const row = grid.splice(y, 1)[0].fill(0);
+                grid.unshift(row);
+                ++y;
+                rowCount++;
+                
+                // Spawn particles across the line
+                for(let k=0; k<COLS; k++) {
+                    spawnParticles(k * BLOCK_SIZE + 15, y * BLOCK_SIZE + 15, '#fff', 3);
+                }
+            }
+            
+            if (rowCount > 0) {
+                SFX.clear();
+                const points = [0, 100, 300, 500, 800];
+                score += points[rowCount] * level;
+                lines += rowCount;
+                if (lines >= level * 10) {
+                    level++;
+                    dropInterval = Math.max(100, 1000 - (level * 50));
+                }
+                updateUI();
+                
+                // Screen shake (CSS)
+                const gameContainer = document.getElementById('game-container');
+                gameContainer.style.transform = `translate(${Math.random()*4-2}px, ${Math.random()*4-2}px)`;
+                setTimeout(() => gameContainer.style.transform = 'none', 100);
+            }
+        }
+
+        function playerDrop() {
+            player.pos.y++;
+            if (collide(grid, player)) {
+                player.pos.y--;
+                merge(grid, player);
+                SFX.drop();
+                arenaSweep();
+                playerReset();
+            }
+            dropCounter = 0;
+        }
+
+        function update(time = 0) {
+            if (isPaused || isGameOver || !isPlaying) return;
+            const deltaTime = time - lastTime;
+            lastTime = time;
+            dropCounter += deltaTime;
+
+            if (dropCounter > dropInterval) playerDrop();
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        function updateUI() {
+            document.getElementById('score').innerText = score;
+            document.getElementById('mobile-score').innerText = score;
+            document.getElementById('level').innerText = level;
+            document.getElementById('lines').innerText = lines;
+        }
+
+        function startGame() {
+            grid = createGrid();
+            score = 0; lines = 0; level = 1; dropInterval = 1000;
+            isGameOver = false; isPaused = false; isPlaying = true;
+            nextPiece = createPiece();
+            
+            updateUI();
+            playerReset();
+            
+            document.getElementById('start-modal').style.display = 'none';
+            document.getElementById('game-over-modal').style.display = 'none';
+            
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            lastTime = performance.now();
+            update();
+        }
+
+        function togglePause() {
+            if (isGameOver || !isPlaying) return;
+            isPaused = !isPaused;
+            const btn = document.getElementById('btn-pause');
+            btn.innerText = isPaused ? "RESUME" : "PAUSE";
+            btn.classList.toggle('text-yellow-400', isPaused);
+            if (!isPaused) {
+                lastTime = performance.now();
+                requestAnimationFrame(update);
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('btn-sound').innerText = soundEnabled ? '🔊' : '🔇';
+        }
+
+        // --- Inputs ---
+        document.addEventListener('keydown', e => {
+            if (isGameOver || !isPlaying) return;
+            if (e.key === 'p' || e.key === 'P') togglePause();
+            if (isPaused) return;
+
+            if (e.key === 'ArrowLeft') { player.pos.x--; if(collide(grid, player)) player.pos.x++; else SFX.move(); }
+            else if (e.key === 'ArrowRight') { player.pos.x++; if(collide(grid, player)) player.pos.x--; else SFX.move(); }
+            else if (e.key === 'ArrowDown') { playerDrop(); }
+            else if (e.key === 'ArrowUp') { playerRotate(1); }
+            else if (e.key === ' ') {
+                while (!collide(grid, player)) player.pos.y++;
+                player.pos.y--;
+                merge(grid, player);
+                SFX.drop();
+                arenaSweep();
+                playerReset();
+                dropCounter = 0;
+            }
+        });
+
+        // Mobile Controls
+        function bindBtn(id, action) {
+            const btn = document.getElementById(id);
+            if(!btn) return;
+            // Prevent double firing
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if(!isPlaying || isPaused) return;
+                action();
+            }, {passive: false});
+             btn.addEventListener('click', (e) => {
+                if(!isPlaying || isPaused) return;
+                action();
+            });
+        }
+        
+        bindBtn('btn-left', () => { player.pos.x--; if(collide(grid, player)) player.pos.x++; else SFX.move(); });
+        bindBtn('btn-right', () => { player.pos.x++; if(collide(grid, player)) player.pos.x--; else SFX.move(); });
+        bindBtn('btn-rotate', () => playerRotate(1));
+        bindBtn('btn-hard', () => {
+             while (!collide(grid, player)) player.pos.y++;
+                player.pos.y--;
+                merge(grid, player);
+                SFX.drop();
+                arenaSweep();
+                playerReset();
+                dropCounter = 0;
+        });
+
+        // Soft drop needs loop
+        const btnDown = document.getElementById('btn-down');
+        let downTimer;
+        const startDown = (e) => {
+            if(e.cancelable) e.preventDefault();
+            if(!isPlaying || isPaused) return;
+            playerDrop();
+            downTimer = setInterval(playerDrop, 100);
+        };
+        const endDown = (e) => {
+            if(e.cancelable) e.preventDefault();
+            clearInterval(downTimer);
+        };
+        btnDown.addEventListener('touchstart', startDown, {passive: false});
+        btnDown.addEventListener('touchend', endDown);
+        btnDown.addEventListener('mousedown', startDown);
+        btnDown.addEventListener('mouseup', endDown);
+
+    </script>
+</body>
+</html>
