@@ -3,19 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF 轉 PowerPoint (高畫質保真版)</title>
+    <title>PDF 轉 PPT (中文 OCR 修復版 v24)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- PPT 生成庫 -->
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <!-- PDF 解析庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <!-- OCR 引擎 (Tesseract v5) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.3/dist/tesseract.min.js"></script>
     
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; }
         
         .drop-zone {
             transition: all 0.3s ease;
@@ -31,6 +33,15 @@
         }
         .slide-preview:hover {
             transform: translateY(-2px);
+        }
+        
+        /* Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #68D391;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #68D391;
         }
     </style>
 </head>
@@ -53,7 +64,7 @@
                 <div class="flex items-center gap-2">
                     <span class="text-2xl">📊</span>
                     <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-                        PDF 轉 PowerPoint <span class="text-xs text-slate-500 font-normal ml-2 border border-slate-200 rounded px-2 py-0.5">視覺保真版</span>
+                        PDF 轉 PPT <span class="text-xs text-slate-500 font-normal ml-2 border border-slate-200 rounded px-2 py-0.5">OCR 修復版</span>
                     </h1>
                 </div>
             </div>
@@ -69,22 +80,53 @@
     <main class="flex-grow max-w-5xl mx-auto w-full px-6 py-8">
         
         <!-- Upload Area -->
-        <div class="mb-8">
+        <div class="mb-8 space-y-4">
             <label class="drop-zone block w-full border-3 border-dashed border-slate-300 rounded-xl p-10 text-center cursor-pointer bg-white">
                 <input type="file" id="fileInput" accept="application/pdf" class="hidden" onchange="handleFile(this)">
                 <div class="text-5xl mb-4">📂</div>
-                <h3 class="text-lg font-bold text-slate-700">點擊上傳 PDF 簡報</h3>
-                <p class="text-slate-500 mt-2 text-sm">支援向量文字與圖片，100% 還原排版</p>
+                <h3 class="text-lg font-bold text-slate-700">步驟 1: 上傳 PDF 簡報</h3>
+                <p class="text-slate-500 mt-2 text-sm">支援圖片型 PDF，轉為高畫質投影片</p>
             </label>
+
+            <!-- Settings -->
+            <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                            <input type="checkbox" name="toggle" id="ocr-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
+                            <label for="ocr-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                        </div>
+                        <div>
+                            <label for="ocr-toggle" class="font-bold text-slate-700 cursor-pointer">啟用備忘錄 OCR (AI 辨識)</label>
+                            <p class="text-xs text-slate-500">若 PDF 是圖片，請開啟此項以提取文字至備忘錄。</p>
+                        </div>
+                    </div>
+                    
+                    <!-- OCR Status Indicator -->
+                    <div id="ocr-status-badge" class="hidden px-3 py-1 bg-orange-100 text-orange-700 text-xs rounded-full flex items-center gap-2">
+                        <div class="animate-spin h-3 w-3 border-2 border-orange-500 border-t-transparent rounded-full"></div>
+                        <span>等待下載中文模型...</span>
+                    </div>
+                </div>
+                
+                <p class="mt-4 text-xs text-slate-400 border-t pt-3">
+                    💡 提示：此選項僅影響 PowerPoint 下方的「備忘錄」。投影片本身將保持 100% 原圖畫質。
+                </p>
+            </div>
         </div>
 
         <!-- Processing Status -->
-        <div id="status-area" class="hidden mb-8 bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-                <span id="status-text" class="text-blue-700 font-medium">正在分析 PDF...</span>
+        <div id="status-area" class="hidden mb-8 bg-blue-50 border border-blue-100 rounded-lg p-4 flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                    <span id="status-text" class="text-blue-700 font-medium">正在準備...</span>
+                </div>
+                <span id="progress-percent" class="text-blue-600 font-bold">0%</span>
             </div>
-            <span id="page-count" class="text-blue-600 text-sm font-bold"></span>
+            <div class="w-full bg-blue-200 rounded-full h-2">
+                <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
         </div>
 
         <!-- Preview Grid -->
@@ -94,17 +136,64 @@
 
     </main>
 
-    <!-- Footer -->
-    <footer class="text-center py-6 text-slate-400 text-sm">
-        <p>策略：將頁面轉為高畫質圖片 (Slide) + 抽取文字至備忘錄 (Notes)</p>
-    </footer>
-
     <!-- Invisible Canvas -->
     <canvas id="render-canvas" class="hidden"></canvas>
 
     <script>
         let pdfDoc = null;
         let pdfFileName = "presentation";
+        let worker = null;
+        let isOcrReady = false;
+
+        // UI Event Listeners
+        document.getElementById('ocr-toggle').addEventListener('change', async function(e) {
+            const badge = document.getElementById('ocr-status-badge');
+            const btn = document.getElementById('btn-convert');
+            
+            if (e.target.checked) {
+                badge.classList.remove('hidden');
+                btn.disabled = true; // Lock button until loaded
+                btn.classList.add('cursor-not-allowed', 'opacity-50');
+                
+                // Start loading immediately
+                await initOCR();
+                
+                badge.className = "px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full flex items-center gap-2";
+                badge.innerHTML = "<span>✅ 中文模型就緒</span>";
+                btn.disabled = false;
+                btn.classList.remove('cursor-not-allowed', 'opacity-50');
+            } else {
+                badge.classList.add('hidden');
+                // Even if OCR is off, enable button if PDF is loaded
+                if (pdfDoc) {
+                    btn.disabled = false;
+                    btn.classList.remove('cursor-not-allowed', 'opacity-50');
+                }
+            }
+        });
+
+        async function initOCR() {
+            if (worker) return; // Already loaded
+            
+            try {
+                // Initialize worker with explicit combined language
+                // Note: 'chi_tra+eng' ensures it looks for both Chinese Traditional and English
+                worker = await Tesseract.createWorker('chi_tra+eng', 1, {
+                    logger: m => {
+                        // Optional: Log progress to console
+                        if (m.status === 'loading tesseract core') console.log("載入核心...");
+                    }
+                });
+                
+                isOcrReady = true;
+            } catch (e) {
+                console.error("OCR Load Error:", e);
+                alert("中文模型下載失敗 (網路問題)。\n請嘗試關閉再重新開啟 OCR 選項，或重新整理頁面。");
+                // Reset toggle
+                document.getElementById('ocr-toggle').checked = false;
+                document.getElementById('ocr-status-badge').classList.add('hidden');
+            }
+        }
 
         // 1. 處理檔案上傳
         function handleFile(input) {
@@ -118,31 +207,42 @@
                 const typedarray = new Uint8Array(e.target.result);
                 try {
                     document.getElementById('status-area').classList.remove('hidden');
-                    document.getElementById('status-text').innerText = "正在讀取 PDF 結構...";
+                    updateStatus("正在分析 PDF 結構...", 10);
                     
                     pdfDoc = await pdfjsLib.getDocument(typedarray).promise;
                     
-                    document.getElementById('status-text').innerText = `讀取成功！共 ${pdfDoc.numPages} 頁`;
-                    document.getElementById('page-count').innerText = "";
+                    updateStatus(`讀取成功！共 ${pdfDoc.numPages} 頁`, 100);
                     
-                    // 啟用下載按鈕
+                    // 啟用下載按鈕 (除非 OCR 正在加載中)
                     const btn = document.getElementById('btn-convert');
-                    btn.disabled = false;
-                    btn.classList.remove('bg-slate-200', 'text-slate-400', 'cursor-not-allowed');
-                    btn.classList.add('bg-blue-600', 'hover:bg-blue-700', 'text-white', 'shadow-lg');
+                    const ocrLoading = document.getElementById('ocr-toggle').checked && !isOcrReady;
+                    
+                    if (!ocrLoading) {
+                        btn.disabled = false;
+                        btn.classList.remove('bg-slate-200', 'text-slate-400', 'cursor-not-allowed');
+                        btn.classList.add('bg-blue-600', 'hover:bg-blue-700', 'text-white', 'shadow-lg');
+                    }
                     
                     // 產生縮圖預覽
                     renderPreviews();
 
                 } catch (err) {
                     console.error(err);
-                    alert("PDF 讀取失敗，請確認檔案未加密。");
+                    alert("PDF 讀取失敗。請確認檔案是否為 PDF 格式。");
                 }
             };
             reader.readAsArrayBuffer(file);
         }
 
-        // 2. 渲染預覽圖 (只渲染前 6 頁以節省效能)
+        function updateStatus(text, percent) {
+            document.getElementById('status-text').innerText = text;
+            if (percent !== undefined) {
+                document.getElementById('progress-bar').style.width = `${percent}%`;
+                document.getElementById('progress-percent').innerText = `${Math.round(percent)}%`;
+            }
+        }
+
+        // 2. 渲染預覽圖
         async function renderPreviews() {
             const grid = document.getElementById('preview-grid');
             grid.innerHTML = '';
@@ -153,7 +253,7 @@
 
             for(let i=1; i<=maxPreview; i++) {
                 const page = await pdfDoc.getPage(i);
-                const viewport = page.getViewport({ scale: 0.5 }); // 預覽用低解析度
+                const viewport = page.getViewport({ scale: 0.5 });
                 
                 canvas.width = viewport.width;
                 canvas.height = viewport.height;
@@ -168,17 +268,9 @@
                     </div>
                     <div class="flex justify-between items-center">
                         <span class="text-xs font-bold text-slate-500">第 ${i} 頁</span>
-                        <span class="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded">可轉換</span>
                     </div>
                 `;
                 grid.appendChild(card);
-            }
-            
-            if (pdfDoc.numPages > 6) {
-                const moreMsg = document.createElement('div');
-                moreMsg.className = "col-span-full text-center text-slate-500 py-4";
-                moreMsg.innerText = `...以及其他 ${pdfDoc.numPages - 6} 頁 (下載後可見)`;
-                grid.appendChild(moreMsg);
             }
         }
 
@@ -187,7 +279,7 @@
             if (!pdfDoc) return;
             
             const btn = document.getElementById('btn-convert');
-            const statusText = document.getElementById('status-text');
+            const useOCR = document.getElementById('ocr-toggle').checked;
             const originalText = btn.innerHTML;
             
             btn.disabled = true;
@@ -201,52 +293,68 @@
 
             try {
                 for (let i = 1; i <= pdfDoc.numPages; i++) {
-                    statusText.innerText = `正在轉換第 ${i} / ${pdfDoc.numPages} 頁...`;
+                    const progress = (i / pdfDoc.numPages) * 100;
+                    updateStatus(`正在處理第 ${i} / ${pdfDoc.numPages} 頁...`, progress);
                     
                     const page = await pdfDoc.getPage(i);
-                    
-                    // A. 高畫質渲染 (Scale 2.0 = 2倍清晰度)
-                    // 這是 PPT 背景圖的關鍵，Scale 越高越清晰但檔案越大
-                    const viewport = page.getViewport({ scale: 2.0 });
+                    // 使用 2.0 倍縮放以確保 PPT 背景清晰
+                    const viewport = page.getViewport({ scale: 2.0 }); 
                     canvas.width = viewport.width;
                     canvas.height = viewport.height;
                     
                     await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-                    const imgData = canvas.toDataURL('image/jpeg', 0.8); // 80% 品質 JPEG
+                    const imgData = canvas.toDataURL('image/jpeg', 0.8);
                     
-                    // B. 提取文字 (Text Extraction)
-                    // 嘗試讀取 PDF 內部的文字層
-                    let extractedText = "";
+                    // --- 文字提取邏輯 (AI 增強) ---
+                    let noteText = "";
+                    
+                    // 1. 嘗試讀取 PDF 原生文字 (最快、最準)
                     try {
                         const textContent = await page.getTextContent();
-                        // 將文字片段組合起來
-                        extractedText = textContent.items.map(item => item.str).join(" ");
-                    } catch (e) {
-                        console.warn("無法提取文字:", e);
+                        const rawText = textContent.items.map(item => item.str).join(" ");
+                        if (rawText.trim().length > 10) {
+                            noteText = rawText; 
+                        }
+                    } catch (e) {}
+
+                    // 2. 若無字且開啟 OCR -> 使用 Tesseract
+                    if ((!noteText || noteText.trim().length === 0) && useOCR && worker) {
+                        updateStatus(`第 ${i} 頁：AI 正在閱讀文字 (OCR)...`, progress);
+                        
+                        try {
+                            const { data } = await worker.recognize(canvas);
+                            // 簡單清理：移除過短的雜訊行
+                            const cleanText = data.lines
+                                .map(line => line.text.trim())
+                                .filter(text => text.length > 1) // 過濾單字元雜訊
+                                .join('\n');
+                                
+                            noteText = cleanText;
+                        } catch (ocrError) {
+                            console.warn("OCR Error on page " + i, ocrError);
+                            noteText = "(本頁 OCR 辨識失敗)";
+                        }
                     }
 
-                    // C. 建立 PPT 頁面
+                    // 建立 Slide
                     let slide = pptx.addSlide();
-                    
-                    // 設定背景為 PDF 截圖 (視覺完美)
                     slide.background = { data: imgData };
                     
-                    // 將提取的文字放入「備忘錄」
-                    if (extractedText.trim().length > 0) {
-                        slide.addNotes(extractedText);
+                    if (noteText && noteText.trim().length > 0) {
+                        slide.addNotes(noteText);
                     }
                 }
 
-                statusText.innerText = "打包下載中...";
+                updateStatus("打包下載中...", 100);
                 await pptx.writeFile({ fileName: `${pdfFileName}_converted.pptx` });
                 
-                statusText.innerText = "轉換完成！";
+                updateStatus("轉換完成！", 100);
                 btn.innerHTML = originalText;
                 btn.disabled = false;
 
             } catch (err) {
                 console.error(err);
-                alert("轉換過程中發生錯誤，請重新整理頁面再試。");
+                alert("轉換過程中發生錯誤。請查看控制台 (F12) 獲取更多資訊。");
                 btn.disabled = false;
                 btn.innerHTML = originalText;
             }
