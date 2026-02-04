@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 靈感發射站 | Sandy's Web Tools</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        
+        body {
+            background-color: #020617;
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.4);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .glass-card:hover {
+            border-color: #22d3ee;
+            transform: translateY(-4px);
+            box-shadow: 0 10px 20px -5px rgba(34, 211, 238, 0.2);
+        }
+
+        .category-tab.active {
+            background: #0891b2;
+            color: white;
+            box-shadow: 0 0 15px rgba(8, 145, 178, 0.5);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-cyan-500/20 rounded-xl">
+                <i data-lucide="zap" class="text-cyan-400"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight">AI 靈感發射站</h1>
+                <p class="text-xs text-slate-500">專治靈感枯竭，一鍵生成專業 Prompt</p>
+            </div>
+        </div>
+        <div class="flex gap-4">
+            <button onclick="toggleSettings()" class="p-2 hover:bg-slate-800 rounded-full transition text-slate-400">
+                <i data-lucide="settings" class="w-5 h-5"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl mx-auto w-full p-6 grid grid-cols-1 lg:grid-cols-4 gap-8 overflow-hidden">
+        
+        <!-- Left: Style Selection (Col 3) -->
+        <div class="lg:col-span-3 space-y-6 flex flex-col h-full overflow-hidden">
+            <!-- Tabs -->
+            <div class="flex gap-4 p-1 bg-slate-900/80 rounded-xl w-fit">
+                <button onclick="setMode('ppt')" id="tab-ppt" class="category-tab active px-6 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 text-white">
+                    <i data-lucide="presentation" class="w-4 h-4"></i> PPT 結構與框架
+                </button>
+                <button onclick="setMode('image')" id="tab-image" class="category-tab px-6 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 text-white">
+                    <i data-lucide="image" class="w-4 h-4"></i> AI 繪圖風格圖鑑
+                </button>
+            </div>
+
+            <!-- Style Grid -->
+            <div id="style-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 overflow-y-auto pr-2 custom-scrollbar flex-1 pb-10">
+                <!-- Cards will be injected by JS -->
+            </div>
+        </div>
+
+        <!-- Right: Control Panel (Col 1) -->
+        <div class="space-y-6">
+            <div class="glass-card p-6 rounded-2xl sticky top-6">
+                <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-cyan-400">
+                    <i data-lucide="edit-3" class="w-5 h-5"></i> 自訂主題
+                </h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-xs text-slate-500 block mb-2 uppercase tracking-widest">輸入內容主題</label>
+                        <textarea id="user-input" rows="3" 
+                            class="w-full bg-slate-950/50 border border-slate-700 rounded-xl p-4 text-white placeholder:text-slate-600 focus:border-cyan-500 outline-none transition text-sm"
+                            placeholder="例如：2024 年度營銷計劃、或是想像中的未來城市..."></textarea>
+                    </div>
+
+                    <button onclick="expandWithAI()" id="ai-btn" class="w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-cyan-900/20 text-white">
+                        <i data-lucide="sparkles" class="w-5 h-5"></i> AI 智慧擴充
+                    </button>
+
+                    <div class="pt-4 border-t border-slate-800">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-xs text-slate-500 uppercase tracking-widest">產出的提示詞</label>
+                            <span id="copy-hint" class="text-[10px] text-emerald-400 hidden">已複製到剪貼簿！</span>
+                        </div>
+                        <div class="relative group">
+                            <textarea id="final-prompt" rows="10" 
+                                class="w-full bg-slate-950/80 border border-slate-700 rounded-xl p-4 text-sm text-cyan-50 font-mono leading-relaxed focus:border-purple-500 outline-none transition custom-scrollbar"
+                                readonly></textarea>
+                            <button onclick="copyPrompt()" class="absolute top-3 right-3 p-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition text-slate-400 group-hover:text-white">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="glass-card max-w-md w-full p-8 rounded-3xl shadow-2xl">
+            <h3 class="text-xl font-bold mb-4 flex items-center gap-2 text-white">
+                <i data-lucide="key" class="text-cyan-400"></i> Gemini API 設定
+            </h3>
+            <p class="text-sm text-slate-400 mb-6">填入 API Key 即可開啟「AI 智慧擴充」功能。</p>
+            <input type="password" id="api-key-input" 
+                class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 mb-6 outline-none focus:border-cyan-500 text-white" 
+                placeholder="AIZA...">
+            <div class="flex gap-3 text-white">
+                <button onclick="toggleSettings()" class="flex-1 py-3 rounded-xl hover:bg-slate-800 transition">取消</button>
+                <button onclick="saveSettings()" class="flex-1 py-3 bg-cyan-600 hover:bg-cyan-500 rounded-xl transition font-bold">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        const APP_ID = 'sandy-prompt-station';
+        let currentMode = 'ppt';
+        let selectedStyleId = null;
+
+        // 風格資料庫
+        const styles = {
+            ppt: [
+                { id: 'mck', name: '麥肯錫顧問風', desc: '強調邏輯、金字塔結構、極簡配色。', prompt: '請作為專業策略顧問，為 [主題] 規劃 PPT 框架。要求：採用麥肯錫金字塔原則，結構包含「現狀-問題-對策」，風格極簡專業，藍白配色。' },
+                { id: 'edu', name: '趣味教學風', desc: '大量插畫、色彩豐富、互動性強。', prompt: '請幫我規劃一份關於 [主題] 的教學 PPT。風格要求：色彩明亮活潑，使用大量比喻，每頁包含一個互動小問題，適合兒童或初學者。' },
+                { id: 'ted', name: 'TED 演講風', desc: '一張大圖、極少文字、說故事導向。', prompt: '請為 [主題] 設計一份 TED 演講風格的投影片。要求：每頁只有一個核心關鍵字或震撼圖片，強調敘事張力與情感連結。' },
+                { id: 'pitch', name: '創投融資風', desc: '震撼數據、清晰願景、高對比視覺。', prompt: '這是一份關於 [主題] 的新創融資計畫。要求：視覺衝擊力強，重點放在市場規模、痛點解決與競爭優勢。' },
+                { id: 'dark-tech', name: '暗黑科技感', desc: '深藍底色、發光線條、未來感。', prompt: '為 [主題] 製作科技感 PPT。要求：深色背景，使用發光藍、霓虹紫點綴，帶有數據視覺化與未來感裝飾。' }
+            ],
+            image: [
+                { id: 'photo', name: '極致寫實攝影', desc: '4K 解析度、電影級光影、細節真實。', prompt: 'Photorealistic, cinematic lighting, ultra-detailed, 8k resolution, shot on 35mm lens, masterpiece, focus on texture of [主題].' },
+                { id: 'ukiyo', name: '浮世繪風格', desc: '傳統和風、平面構成、鮮豔色塊。', prompt: 'Traditional Japanese Ukiyo-e style, woodblock print aesthetic, bold outlines, vibrant flat colors, ancient Japanese artistic style of [主題].' },
+                { id: 'vibe', name: '20s 復古海報', desc: '裝飾藝術 (Art Deco)、幾何美感。', prompt: '1920s Art Deco vintage poster style, geometric patterns, gold and black palette, elegant typography, stylized illustration of [主題].' },
+                { id: 'clay', name: '3D 黏土模型', desc: '圓潤、馬卡龍色調、微距感。', prompt: 'Cute 3D clay render, soft macaron colors, rounded shapes, miniature photography, studio lighting, Octane render, high detail [主題].' },
+                { id: 'cyber', name: '賽博龐克', desc: '霓虹、雨夜、高科技對比。', prompt: 'Cyberpunk aesthetic, neon glitch, rainy night streets, glowing signs, futuristic fashion, synthwave color palette, hyper-detailed [主題].' }
+            ]
+        };
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(`tab-${mode}`).classList.add('active');
+            renderStyles();
+        }
+
+        function renderStyles() {
+            const grid = document.getElementById('style-grid');
+            grid.innerHTML = styles[currentMode].map(s => `
+                <div onclick="selectStyle('${s.id}')" id="style-${s.id}" class="glass-card p-5 rounded-2xl cursor-pointer">
+                    <h4 class="font-bold text-cyan-400 mb-2">${s.name}</h4>
+                    <p class="text-xs text-slate-400 leading-relaxed">${s.desc}</p>
+                </div>
+            `).join('');
+            selectedStyleId = null;
+            updateFinalPrompt();
+        }
+
+        function selectStyle(id) {
+            selectedStyleId = id;
+            document.querySelectorAll('.glass-card').forEach(c => c.classList.remove('ring-2', 'ring-cyan-500', 'bg-slate-800/80'));
+            const selectedCard = document.getElementById(`style-${id}`);
+            selectedCard.classList.add('ring-2', 'ring-cyan-500', 'bg-slate-800/80');
+            updateFinalPrompt();
+        }
+
+        function updateFinalPrompt() {
+            const userIn = document.getElementById('user-input').value.trim();
+            const finalArea = document.getElementById('final-prompt');
+            const style = styles[currentMode].find(s => s.id === selectedStyleId);
+            
+            if (!style) {
+                finalArea.value = userIn ? `[請點選左側風格] + ${userIn}` : '1. 請先點選左側的「風格卡片」\n2. 輸入你的主題';
+                return;
+            }
+
+            finalArea.value = style.prompt.replace('[主題]', userIn || '(請輸入主題)');
+        }
+
+        document.getElementById('user-input').addEventListener('input', updateFinalPrompt);
+
+        // API 儲存
+        function toggleSettings() { document.getElementById('settings-modal').classList.toggle('hidden'); }
+        function saveSettings() {
+            const key = document.getElementById('api-key-input').value;
+            localStorage.setItem(`${APP_ID}-gemini-key`, key);
+            toggleSettings();
+        }
+
+        // AI 腦補功能
+        async function expandWithAI() {
+            const apiKey = localStorage.getItem(`${APP_ID}-gemini-key`);
+            if (!apiKey) { alert('請先點擊右上角設定 API Key！'); toggleSettings(); return; }
+
+            const input = document.getElementById('user-input').value;
+            if (!input) { alert('請先輸入主題！'); return; }
+
+            const btn = document.getElementById('ai-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="animate-spin" data-lucide="loader-2"></i> 腦補中...';
+            lucide.createIcons();
+
+            const styleName = styles[currentMode].find(s => s.id === selectedStyleId)?.name || '預設';
+            const prompt = `你是一個 Prompt 工程師。
+            目前模式：${currentMode === 'ppt' ? 'PPT 規劃' : '生圖提示詞'}
+            主題：${input}
+            風格要求：${styleName}
+            請基於以上資訊，產出一個極其專業、豐富且具備視覺細節描述的 Prompt。
+            如果是 PPT，請列出具體 5-8 頁的標題與內容大綱。
+            如果是生圖，請直接給出一段約 100 字的英文 Prompt。
+            請直接回傳最終結果，不要有任何開場白。`;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                const data = await response.json();
+                const result = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (result) document.getElementById('final-prompt').value = result;
+            } catch (err) {
+                alert('呼叫失敗。');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-lucide="sparkles"></i> AI 智慧擴充';
+                lucide.createIcons();
+            }
+        }
+
+        function copyPrompt() {
+            const text = document.getElementById('final-prompt').value;
+            navigator.clipboard.writeText(text).then(() => {
+                const hint = document.getElementById('copy-hint');
+                hint.classList.remove('hidden');
+                setTimeout(() => hint.classList.add('hidden'), 2000);
+            });
+        }
+
+        window.onload = () => {
+            renderStyles();
+            document.getElementById('api-key-input').value = localStorage.getItem(`${APP_ID}-gemini-key`) || '';
+        };
+    </script>
+</body>
+</html>
