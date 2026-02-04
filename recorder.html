@@ -5,201 +5,239 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ScreenCast Pro | 極致錄影</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* 基礎設定 */
         body { 
-            background-color: #020617; /* Deepest Slate */
-            color: #e2e8f0; 
+            background-color: #09090b; /* Zinc-950 */
+            color: #e4e4e7; /* Zinc-200 */
             font-family: 'Inter', "Microsoft JhengHei", sans-serif; 
             background-image: 
-                linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
-            background-size: 60px 60px;
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 32px 32px;
             overflow-x: hidden;
         }
         
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
         /* 玻璃擬態面板 */
         .glass-panel {
-            background: rgba(15, 23, 42, 0.6);
-            backdrop-filter: blur(20px);
+            background: rgba(24, 24, 27, 0.6);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 20px 25px -5px rgba(0, 0, 0, 0.5);
         }
 
-        /* 霓虹邊框特效 */
-        .neon-border {
-            position: relative;
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.15); /* 藍色微光 */
-            border: 1px solid rgba(59, 130, 246, 0.3);
+        /* 錄影狀態紅點 */
+        .rec-dot {
+            width: 10px; height: 10px;
+            background-color: #ef4444; border-radius: 50%;
+            box-shadow: 0 0 10px #ef4444;
+            animation: pulse-red 2s infinite;
+        }
+        @keyframes pulse-red {
+            0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+            100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
 
         /* 音訊視覺化 Canvas */
         #visualizer {
-            width: 100%; height: 120px;
-            background: linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,0.4));
-            border-top: 1px solid rgba(255, 255, 255, 0.05);
-            mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+            width: 100%; height: 80px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.2) 100%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        /* 錄影紅點 */
-        .rec-dot {
-            width: 12px; height: 12px;
-            background-color: #ef4444; border-radius: 50%;
-            box-shadow: 0 0 15px #ef4444;
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-            100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-        }
-
-        .warning-banner { animation: slideDown 0.5s ease-out; }
+        /* 警告條動畫 */
+        .warning-banner { animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
         @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
 
-        /* 按鈕光暈 */
-        .btn-glow:hover { box-shadow: 0 0 25px rgba(59, 130, 246, 0.5); }
-        .btn-danger-glow:hover { box-shadow: 0 0 25px rgba(239, 68, 68, 0.5); }
+        /* 按鈕樣式 */
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            position: relative; overflow: hidden;
+        }
+        .btn-primary::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.1), transparent);
+            pointer-events: none;
+        }
+        .btn-primary:hover { box-shadow: 0 0 20px rgba(37, 99, 235, 0.4); }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        .btn-danger:hover { box-shadow: 0 0 20px rgba(220, 38, 38, 0.4); }
+
+        /* 切換開關樣式 */
+        .toggle-checkbox:checked {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+        .toggle-checkbox:checked + div {
+            transform: translateX(100%);
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col justify-center">
 
     <!-- 環境限制警告 -->
-    <div id="iframe-warning" class="hidden fixed top-0 left-0 w-full bg-orange-600/95 backdrop-blur text-white text-xs font-bold py-3 px-4 text-center z-[100] warning-banner border-b border-orange-400 shadow-lg">
-        ⚠️ 預覽模式限制：瀏覽器已封鎖錄影功能。請務必點擊右上角「下載」按鈕，將檔案儲存到電腦執行。
+    <div id="iframe-warning" class="hidden fixed top-0 left-0 w-full bg-amber-600/95 backdrop-blur text-white text-xs font-bold py-3 px-4 text-center z-[100] warning-banner shadow-xl border-b border-amber-500/50">
+        <div class="max-w-4xl mx-auto flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <span>預覽模式限制：瀏覽器已封鎖錄影功能。請點擊右上角「下載」按鈕，將檔案儲存到電腦執行。</span>
+        </div>
     </div>
 
-    <!-- Header -->
-    <header class="fixed top-0 w-full bg-black/20 backdrop-blur-sm border-b border-white/5 z-40">
-        <div class="max-w-5xl mx-auto px-6 py-4 flex justify-between items-center">
+    <!-- 頂部導覽列 -->
+    <header class="fixed top-0 w-full z-40 transition-all duration-300 border-b border-white/5 bg-black/20 backdrop-blur-md">
+        <div class="max-w-6xl mx-auto px-6 h-16 flex justify-between items-center">
             <div class="flex items-center gap-4">
-                <a href="index.html" class="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 text-slate-400 hover:bg-blue-600 hover:text-white transition-all shadow-lg border border-slate-700 group">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 group-hover:scale-110 transition-transform" viewBox="0 0 20 20" fill="currentColor">
+                <a href="index.html" class="flex items-center justify-center w-9 h-9 rounded-lg bg-white/5 text-zinc-400 hover:bg-blue-500 hover:text-white transition-all duration-300 border border-white/10 hover:border-blue-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
                     </svg>
                 </a>
-                <div>
-                    <h1 class="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 tracking-tight">
-                        ScreenCast <span class="text-white">Ultra</span>
+                <div class="flex flex-col">
+                    <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                        ScreenCast <span class="px-1.5 py-0.5 rounded text-[10px] bg-blue-500/10 text-blue-400 font-mono font-bold border border-blue-500/20">PRO</span>
                     </h1>
-                    <div class="flex items-center gap-2">
-                        <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_10px_#10b981]"></span>
-                        <p class="text-[10px] text-slate-400 tracking-widest uppercase">System Online</p>
-                    </div>
                 </div>
             </div>
             
-            <div id="status-indicator" class="hidden flex items-center gap-3 px-5 py-2 bg-black/60 border border-red-500/50 rounded-full shadow-[0_0_30px_rgba(239,68,68,0.3)] backdrop-blur">
+            <!-- 狀態指示器 -->
+            <div id="status-indicator" class="hidden flex items-center gap-3 px-4 py-1.5 bg-zinc-900/90 border border-red-500/30 rounded-full shadow-[0_0_20px_rgba(239,68,68,0.2)]">
                 <div class="rec-dot"></div>
-                <span class="text-xs font-bold text-red-500 tracking-widest">REC</span>
-                <span id="timer" class="text-sm font-mono text-white font-bold tabular-nums">00:00:00</span>
+                <span class="text-xs font-bold text-red-400 tracking-widest">REC</span>
+                <span id="timer" class="text-sm font-mono text-zinc-100 font-bold tabular-nums tracking-wide">00:00:00</span>
             </div>
         </div>
     </header>
 
-    <main class="flex-grow w-full max-w-5xl mx-auto p-4 md:p-8 flex flex-col gap-8 pt-24">
+    <main class="flex-grow w-full max-w-5xl mx-auto p-6 flex flex-col gap-8 pt-24 pb-12">
         
         <!-- 視訊預覽區 -->
         <div class="w-full relative group">
-            <!-- 背景光暈 -->
-            <div class="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-[2rem] blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+            <!-- 裝飾性光暈 -->
+            <div class="absolute -inset-0.5 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-2xl blur opacity-75 group-hover:opacity-100 transition duration-1000"></div>
             
-            <div class="relative w-full aspect-video bg-black rounded-[1.5rem] border border-slate-700/50 flex flex-col items-center justify-center overflow-hidden shadow-2xl backdrop-blur-sm neon-border">
-                <video id="preview" class="flex-grow w-full object-contain z-10" autoplay muted playsinline></video>
+            <div class="relative w-full aspect-video bg-black rounded-2xl border border-white/10 flex flex-col items-center justify-center overflow-hidden shadow-2xl">
+                
+                <video id="preview" class="flex-grow w-full h-full object-contain z-10" autoplay muted playsinline></video>
                 
                 <!-- 初始 Placeholder -->
-                <div id="placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+CjxwYXRoIGQ9Ik0wIDBoNDB2NDBIMHoiIGZpbGw9Im5vbmUiLz4KPHBhdGggZD0iTTAgNDBMOF4wIDQwaDQwTDAgMHoiIGZpbGw9InJnYmEoNTksIDEzMCwgMjQ2LCAwLjAzKSIvPgo8L3N2Zz4=')] z-20">
-                    <div class="w-24 h-24 bg-slate-800/50 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500 border border-slate-700 group-hover:border-blue-500/50 group-hover:shadow-[0_0_40px_rgba(59,130,246,0.2)]">
-                        <svg class="w-10 h-10 text-slate-400 group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-                    </div>
-                    <h2 class="text-2xl font-black text-white mb-2 tracking-tight">準備錄製</h2>
-                    <div class="flex gap-4 text-xs font-bold text-slate-500 uppercase tracking-widest">
-                        <span>4K Ready</span>
-                        <span>•</span>
-                        <span>Stereo Audio</span>
-                        <span>•</span>
-                        <span>No Watermark</span>
+                <div id="placeholder" class="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950 z-20">
+                    <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz44L3N2Zz4=')] opacity-20"></div>
+                    
+                    <div class="relative z-10 flex flex-col items-center">
+                        <div class="w-20 h-20 bg-zinc-900 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500 border border-white/10 shadow-xl group-hover:border-blue-500/30">
+                            <svg class="w-10 h-10 text-zinc-500 group-hover:text-blue-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <h2 class="text-2xl font-bold text-white mb-2">準備錄製</h2>
+                        <div class="flex gap-3 text-xs font-medium text-zinc-500">
+                            <span class="px-2 py-1 rounded bg-white/5 border border-white/5">4K Ultra HD</span>
+                            <span class="px-2 py-1 rounded bg-white/5 border border-white/5">Stereo Audio</span>
+                            <span class="px-2 py-1 rounded bg-white/5 border border-white/5">No Watermark</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- 音訊視覺化 Canvas (移到最下方) -->
-                <canvas id="visualizer" class="absolute bottom-0 left-0 w-full h-32 z-0 opacity-80 pointer-events-none mix-blend-screen"></canvas>
+                <!-- 音訊視覺化 Canvas -->
+                <canvas id="visualizer" class="absolute bottom-0 left-0 w-full h-24 z-0 opacity-60 pointer-events-none mix-blend-screen"></canvas>
             </div>
         </div>
 
         <!-- 控制面板 -->
-        <div class="glass-panel p-6 rounded-2xl flex flex-col md:flex-row items-center gap-8 border border-slate-700/50">
-            <!-- 設定 -->
-            <div class="flex flex-col gap-3 w-full md:w-auto min-w-[240px]">
-                <h3 class="text-[10px] text-blue-400 font-bold uppercase tracking-widest mb-1 pb-2 border-b border-white/5 flex justify-between">
-                    音訊配置
-                    <span class="text-slate-600">AUDIO CONFIG</span>
-                </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <!-- 左側：音訊設定 -->
+            <div class="glass-panel p-5 rounded-2xl flex flex-col justify-center gap-4">
+                <div class="flex items-center justify-between pb-3 border-b border-white/5">
+                    <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        音訊來源設定
+                    </h3>
+                </div>
                 
-                <!-- 系統音效 (預設開啟) -->
-                <label class="flex items-center justify-between cursor-pointer group hover:bg-white/5 p-2 rounded-lg transition-colors">
+                <!-- 系統音效 -->
+                <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
                     <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-emerald-400 group-hover:bg-slate-700 transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                        <div class="w-8 h-8 rounded-lg bg-black/40 flex items-center justify-center text-emerald-400">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                         </div>
-                        <span class="text-sm font-bold text-slate-300 group-hover:text-white transition-colors">系統音效</span>
+                        <div>
+                            <div class="text-sm font-bold text-zinc-200">系統音效</div>
+                            <div class="text-[10px] text-zinc-500">錄製電腦發出的聲音</div>
+                        </div>
                     </div>
-                    <div class="relative">
+                    <label class="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" id="toggle-audio" class="sr-only peer" checked>
-                        <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
-                    </div>
-                </label>
+                        <div class="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                    </label>
+                </div>
 
-                <!-- 麥克風 (預設關閉) -->
-                <label class="flex items-center justify-between cursor-pointer group hover:bg-white/5 p-2 rounded-lg transition-colors">
+                <!-- 麥克風 -->
+                <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
                     <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-blue-400 group-hover:bg-slate-700 transition-colors">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 11-6 0 3 3 0 016 0v6a3 3 0 01-3 3z"></path></svg>
+                        <div class="w-8 h-8 rounded-lg bg-black/40 flex items-center justify-center text-blue-400">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 11-6 0 3 3 0 016 0v6a3 3 0 01-3 3z"/></svg>
                         </div>
-                        <span class="text-sm font-bold text-slate-300 group-hover:text-white transition-colors">麥克風混音</span>
+                        <div>
+                            <div class="text-sm font-bold text-zinc-200">麥克風混音</div>
+                            <div class="text-[10px] text-zinc-500">錄製您的解說</div>
+                        </div>
                     </div>
-                    <div class="relative">
+                    <label class="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" id="toggle-mic" class="sr-only peer">
-                        <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
-                    </div>
-                </label>
+                        <div class="w-9 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-500"></div>
+                    </label>
+                </div>
             </div>
 
-            <div class="h-24 w-px bg-gradient-to-b from-transparent via-slate-600 to-transparent hidden md:block"></div>
-
-            <!-- 動作按鈕 -->
-            <div class="flex-grow w-full flex gap-4">
-                <button id="btn-start" onclick="startRecording()" class="flex-1 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white rounded-xl font-black text-lg shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:shadow-[0_0_50px_rgba(37,99,235,0.6)] btn-glow transition-all active:scale-95 flex flex-col items-center justify-center gap-1 group border border-blue-400/20">
-                    <div class="flex items-center gap-2">
-                        <div class="w-3 h-3 bg-white rounded-full group-hover:animate-ping"></div>
-                        <span>開始錄製</span>
+            <!-- 右側：主要操作 -->
+            <div class="glass-panel p-5 rounded-2xl flex flex-col justify-center items-center gap-4">
+                
+                <!-- 開始按鈕 -->
+                <button id="btn-start" onclick="startRecording()" class="btn-primary w-full h-16 rounded-xl text-white font-bold text-lg shadow-lg flex items-center justify-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] border border-blue-400/20 group">
+                    <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
+                        <div class="w-3 h-3 bg-white rounded-full"></div>
                     </div>
-                    <span class="text-[10px] font-normal opacity-70 tracking-wider">START CAPTURE</span>
+                    <span>開始錄製</span>
                 </button>
                 
-                <button id="btn-stop" onclick="stopRecording()" class="hidden flex-1 h-20 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all active:scale-95 flex flex-col items-center justify-center gap-1 border border-slate-600 btn-danger-glow group">
-                    <div class="flex items-center gap-2">
-                        <div class="w-4 h-4 bg-red-500 rounded-sm group-hover:rotate-90 transition-transform"></div>
-                        <span>停止錄製</span>
+                <!-- 停止按鈕 -->
+                <button id="btn-stop" onclick="stopRecording()" class="hidden btn-danger w-full h-16 rounded-xl text-white font-bold text-lg shadow-lg flex items-center justify-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] border border-red-400/20">
+                    <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center animate-pulse">
+                        <div class="w-3 h-3 bg-white rounded-sm"></div>
                     </div>
-                    <span class="text-[10px] font-normal opacity-70 tracking-wider">STOP & SAVE</span>
+                    <span>停止錄製</span>
                 </button>
 
-                <a id="btn-download" class="hidden flex-1 h-20 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1 cursor-pointer border border-emerald-400/30 btn-glow">
-                    <div class="flex items-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        <span>儲存影片</span>
-                    </div>
-                    <span class="text-[10px] font-normal opacity-70 tracking-wider">DOWNLOAD .WEBM</span>
+                <!-- 下載按鈕 -->
+                <a id="btn-download" class="hidden w-full h-16 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-lg shadow-lg flex items-center justify-center gap-3 transition-all hover:scale-[1.02] active:scale-[0.98] border border-emerald-400/20 cursor-pointer">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    <span>儲存影片 (.webm)</span>
                 </a>
+
+                <div class="text-center">
+                    <p class="text-[10px] text-zinc-500 font-mono tracking-tight">
+                        無需上傳 • 本地處理 • 隱私安全
+                    </p>
+                </div>
             </div>
+
         </div>
 
     </main>
 
+    <!-- 底部警告 -->
     <div class="fixed bottom-4 w-full text-center pointer-events-none z-40">
-        <span class="text-[10px] text-slate-600 font-mono bg-black/50 px-3 py-1 rounded-full backdrop-blur">
-            LOCAL STORAGE ONLY • NO CLOUD UPLOAD • PRIVACY FIRST
+        <span class="text-[10px] text-zinc-100 font-bold bg-black/60 px-4 py-2 rounded-full backdrop-blur border border-white/10 shadow-lg">
+            ⚠️ 建議：如果是錄遊戲或高動態畫面，建議 30~60 分鐘存檔一次。
         </span>
     </div>
 
@@ -231,22 +269,24 @@
             const useSystemAudio = document.getElementById('toggle-audio').checked;
 
             try {
-                // 1. 螢幕錄影 (系統音效請求)
+                // 1. 取得螢幕畫面 (核心)
+                // 瀏覽器會彈窗詢問使用者要分享哪個畫面
+                // 若勾選 toggle-audio，我們會嘗試在 getDisplayMedia 中請求音訊
                 const displayStream = await navigator.mediaDevices.getDisplayMedia({
                     video: { mediaSource: "screen", cursor: "always" },
-                    audio: useSystemAudio // 這裡決定是否錄系統音
+                    audio: useSystemAudio // 這裡告訴瀏覽器我們想要系統音
                 });
 
                 // 2. 音訊混音邏輯 (完全不碰麥克風，除非勾選)
                 let finalStream = displayStream;
                 let audioTracks = [];
 
-                // 加入系統音效 (如果有)
+                // 檢查系統音效是否有成功取得
                 if (displayStream.getAudioTracks().length > 0) {
                     audioTracks.push(displayStream.getAudioTracks()[0]);
                 }
 
-                // 加入麥克風 (只有勾選才請求)
+                // 只有當使用者勾選「麥克風」時，才請求 getUserMedia
                 if (useMic) {
                     try {
                         const micStream = await navigator.mediaDevices.getUserMedia({ 
@@ -255,7 +295,7 @@
                         audioTracks.push(micStream.getAudioTracks()[0]);
                     } catch (micErr) {
                         console.warn("麥克風存取失敗:", micErr);
-                        alert("無法存取麥克風。將僅錄製影像與系統音。");
+                        alert("無法存取麥克風 (可能被拒絕或無裝置)。\n錄影將繼續，但沒有麥克風聲音。");
                     }
                 }
 
@@ -264,18 +304,19 @@
                     audioContext = new (window.AudioContext || window.webkitAudioContext)();
                     const dest = audioContext.createMediaStreamDestination();
                     analyser = audioContext.createAnalyser();
-                    analyser.fftSize = 512; // 更細緻的頻譜
+                    analyser.fftSize = 256; 
                     
                     audioTracks.forEach(track => {
+                        // 建立音訊源
                         const source = audioContext.createMediaStreamSource(new MediaStream([track]));
-                        source.connect(dest);
+                        source.connect(dest); // 連接到輸出 (混音)
                         source.connect(analyser); // 連接到視覺化
                     });
 
                     // 啟動視覺化
                     visualize();
 
-                    // 產生最終串流 (影像 + 混合後的音訊)
+                    // 產生最終串流 (原始影像 + 混合後的音訊)
                     finalStream = new MediaStream([
                         ...displayStream.getVideoTracks(),
                         ...dest.stream.getAudioTracks()
@@ -289,11 +330,11 @@
 
                 // 4. 預覽設定
                 preview.srcObject = displayStream;
-                preview.muted = true; // 預覽靜音
+                preview.muted = true; // 預覽靜音，避免回授
                 await preview.play();
                 placeholder.classList.add('hidden');
 
-                // 5. 錄製設定
+                // 5. 錄製設定 (優先使用 VP9 高畫質)
                 let options = { mimeType: 'video/webm; codecs=vp9' };
                 if (!MediaRecorder.isTypeSupported(options.mimeType)) options = { mimeType: 'video/webm' };
 
@@ -308,7 +349,7 @@
                     btnDownload.download = `REC_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.webm`;
                     btnDownload.classList.remove('hidden');
                     
-                    // 預覽結果
+                    // 停止後預覽錄製結果 (開啟聲音)
                     preview.srcObject = null;
                     preview.src = url;
                     preview.muted = false;
@@ -321,7 +362,7 @@
                 };
 
                 recordedChunks = [];
-                mediaRecorder.start(1000);
+                mediaRecorder.start(1000); // 每秒存檔一次
                 
                 // UI 更新
                 btnStart.classList.add('hidden');
@@ -355,7 +396,7 @@
         function resetUI() {
             btnStop.classList.add('hidden');
             btnStart.classList.remove('hidden');
-            btnStart.innerHTML = `<div class="flex items-center gap-2"><div class="w-3 h-3 bg-white rounded-full"></div><span>重新錄製</span></div><span class="text-[10px] font-normal opacity-70 tracking-wider">NEW SESSION</span>`;
+            // btnStart.innerHTML 保持原本結構
             statusIndicator.classList.add('hidden');
             statusIndicator.classList.remove('flex');
         }
