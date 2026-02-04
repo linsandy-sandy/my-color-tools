@@ -42,15 +42,25 @@
 
     <!-- Header -->
     <header class="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
-        <div class="flex items-center gap-3">
-            <div class="p-2 bg-cyan-500/20 rounded-xl">
-                <i data-lucide="zap" class="text-cyan-400"></i>
-            </div>
-            <div>
-                <h1 class="text-2xl font-bold tracking-tight">AI 靈感發射站</h1>
-                <p class="text-xs text-slate-500">專治靈感枯竭，一鍵生成專業 Prompt</p>
+        <div class="flex items-center">
+            <!-- Back Button (Updated to ebook.html style) -->
+            <a href="index.html" class="mr-6 flex items-center gap-2 text-slate-300 hover:text-white transition-colors text-sm font-medium border border-slate-700 hover:border-slate-500 px-3 py-1.5 rounded-lg bg-slate-800">
+                <i data-lucide="home" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">回首頁</span>
+            </a>
+
+            <!-- Logo & Title -->
+            <div class="flex items-center gap-3 border-l border-slate-700 pl-6">
+                <div class="p-2 bg-cyan-500/20 rounded-xl">
+                    <i data-lucide="zap" class="text-cyan-400"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight">AI 靈感發射站</h1>
+                    <p class="text-xs text-slate-500">專治靈感枯竭，一鍵生成專業 Prompt</p>
+                </div>
             </div>
         </div>
+
         <div class="flex gap-4">
             <button onclick="toggleSettings()" class="p-2 hover:bg-slate-800 rounded-full transition text-slate-400">
                 <i data-lucide="settings" class="w-5 h-5"></i>
@@ -147,7 +157,12 @@
                 { id: 'edu', name: '趣味教學風', desc: '大量插畫、色彩豐富、互動性強。', prompt: '請幫我規劃一份關於 [主題] 的教學 PPT。風格要求：色彩明亮活潑，使用大量比喻，每頁包含一個互動小問題，適合兒童或初學者。' },
                 { id: 'ted', name: 'TED 演講風', desc: '一張大圖、極少文字、說故事導向。', prompt: '請為 [主題] 設計一份 TED 演講風格的投影片。要求：每頁只有一個核心關鍵字或震撼圖片，強調敘事張力與情感連結。' },
                 { id: 'pitch', name: '創投融資風', desc: '震撼數據、清晰願景、高對比視覺。', prompt: '這是一份關於 [主題] 的新創融資計畫。要求：視覺衝擊力強，重點放在市場規模、痛點解決與競爭優勢。' },
-                { id: 'dark-tech', name: '暗黑科技感', desc: '深藍底色、發光線條、未來感。', prompt: '為 [主題] 製作科技感 PPT。要求：深色背景，使用發光藍、霓虹紫點綴，帶有數據視覺化與未來感裝飾。' }
+                { id: 'dark-tech', name: '暗黑科技感', desc: '深藍底色、發光線條、未來感。', prompt: '為 [主題] 製作科技感 PPT。要求：深色背景，使用發光藍、霓虹紫點綴，帶有數據視覺化與未來感裝飾。' },
+                { id: 'cyberpunk', name: '賽博龐克風', desc: '霓虹光暈、全息介面、未來科技感。', prompt: '請為 [主題] 規劃一份「賽博龐克 (Cyberpunk)」風格的 PPT。視覺要求：Futuristic cyberpunk style, dark background, glowing neon lines, holographic data interfaces, neon magenta, cyan, and electric purple. 內容建議：強調破壞式創新、未來趨勢或數位轉型，語言風格要前衛且具衝擊力。' },
+                { id: 'clay', name: '3D 黏土動畫', desc: '圓潤可愛、擬真材質、親切友善。', prompt: '請為 [主題] 規劃一份「3D 黏土動畫 (3D Clay)」風格的 PPT。視覺要求：3D render style, cute claymation look, soft rounded textures like physical plastic toys, friendly colors, bright studio lighting. 內容建議：適合教育、親子或輕鬆議題，將複雜數據轉化為可愛的具象化模型，語氣親切幽默。' },
+                { id: 'dashboard', name: '數據儀表板', desc: '資訊視覺化、深色模式、結構清晰。', prompt: '請為 [主題] 規劃一份「數據儀表板 (Dashboard UI)」風格的 PPT。視覺要求：Modern data dashboard UI, clean data visualization widgets including charts and graphs, dark mode UI, structured grid layout. 內容建議：以數據為核心 (Data-Driven)，每一頁都應展示關鍵指標 (KPI) 與分析圖表，適合業務匯報或成效分析。' },
+                { id: 'isometric', name: '2.5D 等距風格', desc: '立體視角、懸浮方塊、科技配色。', prompt: '請為 [主題] 規劃一份「2.5D 等距 (Isometric)」風格的 PPT。視覺要求：Isometric illustration style, 3D view, interconnected floating platforms, cubic elements, tech-inspired color palette, clean light gray background. 內容建議：適合展示系統架構、流程圖或供應鏈關係，強調各環節的連結與層次感。' },
+                { id: 'minimalist', name: '極簡主義風', desc: '大量留白、細線圖標、優雅排版。', prompt: '請為 [主題] 規劃一份「極簡主義 (Minimalist)」風格的 PPT。視覺要求：Minimalist and elegant style, abundant white space, very few elements, thin elegant black line icons, sans-serif typography, "Less is more". 內容建議：核心在於減法，每頁只保留一個核心觀點，文字極精簡，用留白引導觀眾注意力。' }
             ],
             image: [
                 { id: 'photo', name: '極致寫實攝影', desc: '4K 解析度、電影級光影、細節真實。', prompt: 'Photorealistic, cinematic lighting, ultra-detailed, 8k resolution, shot on 35mm lens, masterpiece, focus on texture of [主題].' },
